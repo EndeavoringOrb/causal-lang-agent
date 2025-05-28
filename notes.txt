@@ -1,0 +1,33 @@
+Use React framework
+
+
+1. Get causal reasoning dataset
+2. Make tool system
+3. Evaluate models
+    -base models
+    -base + tools
+    -base + tools + RL fine-tune for tool usage
+
+Tools:
+graph = {
+    "nodes": [
+        {"X": "husband"},
+        {"V2": "wife"},
+        {"Y": "alarm"},
+    ],
+    "edges": [
+        ("X", "V2"),
+        ("X", "Y"),
+        ("V2", "Y")
+    ],
+    "given_info": {
+        "P(Y=1 | X=0, V2=0)": 0.08,
+        "P(Y=1 | X=0, V2=1)": 0.54,
+        "P(Y=1 | X=1, V2=0)" = 0.41,
+        "P(Y=1 | X=1, V2=1)" = 0.86,
+        "P(V2=1 | X=0)" = 0.74,
+        "P(V2=1 | X=1)" = 0.24
+    }
+}
+
+evaluate_graph(graph, "E[Y_{X=1, V2=0} - Y_{X=0, V2=0}] > 0")
