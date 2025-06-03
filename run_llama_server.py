@@ -133,12 +133,25 @@ def solution():
     return text
 
 
+def extract_boxed_content(text):
+    # Match content inside \boxed{...}
+    match = re.search(r"\\boxed\{([^}]*)\}", text)
+    if match:
+        return match.group(1)
+    return None
+
+
 def extract_answer(question, answer):
     text = f'Extract the final answer from the given solution as a numeric value or a short phrase for the question. If you cannot extract an answer, return "None". '
-    text += 'You should either return "None" or the final answer without any additional words.\n'
+    if USE_BOXED:
+        text += "You should put your answer in $\\boxed{}$, i.e. $\\boxed{1.5}$ or $\\boxed{numerical}$ or $\\boxed{None}$.\n"
+    else:
+        text += 'You should either return "None" or the final answer without any additional words.\n'
     text += f"Question: {question.strip()}\n"
     text += f"Solution: {answer.strip()}\n"
-    text += "Final Answer:"
+    text += "Final Answer: "
+    if USE_BOXED:
+        text += "$\\boxed{"
     return text
 
 
@@ -182,6 +195,8 @@ def is_correct(pred, data):
 
     error_scale = 0.03
 
+    pred = pred.strip().strip(".").strip("}")
+
     if data["meta_data"]["question_type"] == "numerical":
         if gold[-1] != "%":
             gold_float = float(gold)
@@ -204,14 +219,13 @@ def is_correct(pred, data):
             upper_bound = max(
                 gold_float * (1 - error_scale), gold_float * (1 + error_scale)
             )
-            if lower_bound < pred_float and upper_bound > pred_float:
-                return True
+
+            return lower_bound < pred_float and upper_bound > pred_float
         except:
             # cannot extract number from the prediction
             return False
-
     else:  # question type is multiple choice
-        return gold == pred[: len(gold)]
+        return gold == pred
 
 
 def save_result(path: str, record: dict):
@@ -237,7 +251,7 @@ def COT(client, data):
             stream=True,
             log_response=LOG,
             text_only=True,
-            stop=["\n"],
+            stop=["$"] if USE_BOXED else ["\n"],
         ):
             final_answer += chunk
 
@@ -245,6 +259,7 @@ def COT(client, data):
 
         result_record = {
             "model": MODEL_NAME,
+            "prompt_type": PROMPT_TYPE,
             "idx": idx,
             "answer": item["answer"],
             "pred": final_answer,
@@ -275,6 +290,7 @@ def POT(client, data):
 
         result_record = {
             "model": MODEL_NAME,
+            "prompt_type": PROMPT_TYPE,
             "idx": idx,
             "answer": item["answer"],
             "pred": final_answer,
@@ -283,8 +299,22 @@ def POT(client, data):
         save_result(RESULTS_PATH, result_record)
 
 
+def test_is_correct():
+    data = {
+        "answer": "treatment group",
+        "meta_data": {
+            "question_type": "multiple_choice",
+        },
+    }
+    assert is_correct("treatment group", data) == True
+    assert is_correct(" treatment group", data) == True
+    assert is_correct(" treatment group.", data) == True
+    assert is_correct("treatment group}", data) == True
+
+
 if __name__ == "__main__":
-    MODEL_NAME = "unsloth/Qwen3-0.6B-UD-IQ1_M"
+    USE_BOXED = True
+    MODEL_NAME = "unsloth/Llama-3.2-1B-Instruct-Q4_K_M"
     BENCHMARK_PATH = "QRData/benchmark"
     PROMPT_TYPE = "COT"  # COT, POT
     RESULTS_PATH = os.path.join(BENCHMARK_PATH, "results.jsonl")
