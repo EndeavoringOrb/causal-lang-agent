@@ -1,3 +1,6 @@
-transformers[torch]
+unsloth
+vllm
+trl
 pandas
-
+requests
+huggingface_hub
