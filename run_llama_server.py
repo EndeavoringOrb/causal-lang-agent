@@ -9,7 +9,7 @@ from typing import List, Optional, Generator, Union
 
 
 class LlamaServerClient:
-    def __init__(self, base_url: str = "http://localhost:8080"):
+    def __init__(self, base_url: str = "http://localhost:55551"):
         """
         Initialize the LlamaServerClient with a specific base URL.
 
@@ -158,7 +158,7 @@ def extract_answer(question, answer):
 def exec_with_output(code: str, working_dir: str | None = None):
     stdout_buffer = io.StringIO()
     stderr_buffer = io.StringIO()
-    result = None
+    result = ""
     original_dir = os.getcwd()
 
     try:
@@ -195,7 +195,7 @@ def is_correct(pred, data):
 
     error_scale = 0.03
 
-    pred = pred.strip().strip(".").strip("}")
+    pred = str(pred).strip().strip(".").strip("}")
 
     if data["meta_data"]["question_type"] == "numerical":
         if gold[-1] != "%":
@@ -270,7 +270,7 @@ def COT(client, data):
 
 def POT(client, data):
     # Program of thoughts
-    for idx, item in enumerate(data[:2]):
+    for idx, item in enumerate(data):
         prompt = format_QRData_item_POT(BENCHMARK_PATH, item)
         answer = "def solution():\n"
         for chunk in client.generate(
@@ -281,6 +281,15 @@ def POT(client, data):
             stop=["```"],
         ):
             answer += chunk
+        
+        lines = answer.splitlines()
+        answer = []
+        for line in lines:
+            if line.strip().startswith("return"):
+                answer.append(line)
+                break
+            answer.append(line)
+        answer = "\n".join(answer)
 
         final_answer, stdout, stderr = exec_with_output(
             answer, os.path.join(BENCHMARK_PATH, "data")
@@ -314,9 +323,9 @@ def test_is_correct():
 
 if __name__ == "__main__":
     USE_BOXED = True
-    MODEL_NAME = "unsloth/Llama-3.2-1B-Instruct-Q4_K_M"
+    MODEL_NAME = "unsloth/Qwen3-8B-Q5_K_M"
     BENCHMARK_PATH = "QRData/benchmark"
-    PROMPT_TYPE = "COT"  # COT, POT
+    PROMPT_TYPE = "POT"  # COT, POT
     RESULTS_PATH = os.path.join(BENCHMARK_PATH, "results.jsonl")
     LOG = True
     client = LlamaServerClient()
