@@ -24,6 +24,7 @@ class LlamaServerClient:
         stop: List[str] = [],
         log_response: bool = False,
         text_only: bool = True,
+        max_tokens: int = 512,
         **kwargs,
     ):
         """
@@ -42,6 +43,7 @@ class LlamaServerClient:
             "prompt": prompt,
             "stream": stream,
             "stop": stop,
+            "max_tokens": max_tokens,
             **kwargs,
         }
 
@@ -65,17 +67,6 @@ class LlamaServerClient:
             return stream_generator()
         else:
             return response.json()["choices"][0]["text"]
-
-    def get_model_info(self):
-        """
-        Retrieve model and server information from the llama-server.
-
-        :return: A dictionary containing server and model details.
-        """
-        url = f"{self.base_url}/v1/info"
-        response = requests.post(url, headers={"accept": "application/json"})
-        response.raise_for_status()
-        return response.json()
 
 
 def format_QRData_item(benchmark_path, item, rows=10):
@@ -236,7 +227,7 @@ def save_result(path: str, record: dict):
 
 def COT(client, data):
     # Chain of thought
-    for idx, item in enumerate(data):
+    for idx, item in data:
         prompt = format_QRData_item(BENCHMARK_PATH, item)
         answer = ""
         for chunk in client.generate(
@@ -270,7 +261,7 @@ def COT(client, data):
 
 def POT(client, data):
     # Program of thoughts
-    for idx, item in enumerate(data):
+    for idx, item in data:
         prompt = format_QRData_item_POT(BENCHMARK_PATH, item)
         answer = "def solution():\n"
         for chunk in client.generate(
@@ -281,7 +272,7 @@ def POT(client, data):
             stop=["```"],
         ):
             answer += chunk
-        
+
         lines = answer.splitlines()
         answer = []
         for line in lines:
@@ -325,13 +316,17 @@ if __name__ == "__main__":
     USE_BOXED = True
     MODEL_NAME = "unsloth/Qwen3-8B-Q5_K_M"
     BENCHMARK_PATH = "QRData/benchmark"
-    PROMPT_TYPE = "POT"  # COT, POT
+    PROMPT_TYPE = "COT"  # COT, POT
     RESULTS_PATH = os.path.join(BENCHMARK_PATH, "results.jsonl")
     LOG = True
     client = LlamaServerClient()
 
     with open(os.path.join(BENCHMARK_PATH, "QRData.json"), "r", encoding="utf-8") as f:
         data = json.load(f)
+
+    print(f"Loaded {len(data):,} items")
+    data = [item for item in enumerate(data) if "Causality" in item[1]["meta_data"]["keywords"]]
+    print(f"Filtered for {len(data):,} causal items")
 
     if PROMPT_TYPE == "COT":
         COT(client, data)
