@@ -361,6 +361,14 @@ if __name__ == "__main__":
         for item in enumerate(data)
         if (("Causality" in item[1]["meta_data"]["keywords"]) and (item[1]["meta_data"]["question_type"] == "numerical"))
     ]
+    def count_columns(csv_path):
+        df = pd.read_csv(csv_path)
+        return len(df.columns)
+
+    data = sorted(
+        data,
+        key=lambda item: count_columns(os.join(BENCHMARK_PATH, item[1]["data_files"][0]))
+    )
     print(f"Filtered for {len(data):,} causal items")
 
     if PROMPT_TYPE == "COT":
