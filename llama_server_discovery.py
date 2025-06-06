@@ -98,7 +98,7 @@ def format_QRData_item_POT(benchmark_path, item, rows=10):
     text = """You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the 
 provided data. The description and the question can be found below. Please analyze the first 10 rows of the table and write 
 python code to analyze the whole table. You must the Dowhy library to build a causal model and perform effect estimation. The returned value of the program is supposed to be 
-the answer. The path to the causal graph is graph.dot. The general format of the code should be
+the answer. The path to the causal graph is graph.dot. After the solution function is written, don't write any more code and enter ```. The general format of the code should be
 ```python
 def solution():
     from dowhy import CausalModel
