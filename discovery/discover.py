@@ -1,5 +1,5 @@
-from ConstrainAgent import ConstrainNormalAgent
-from CausalDiscovery import (
+from discovery.ConstrainAgent import ConstrainNormalAgent
+from discovery.CausalDiscovery import (
     causal_discovery,
 )
 import numpy as np
@@ -61,6 +61,7 @@ def discover(filename):
     )
 
     return adjacency_matrix_optimized, labels
+
 
 if __name__ == "__main__":
     discover("matmcd/data/Auto_MPG_data.csv")

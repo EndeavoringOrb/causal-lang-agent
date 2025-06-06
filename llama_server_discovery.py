@@ -5,8 +5,8 @@ import json
 import requests
 import contextlib
 import pandas as pd
-from typing import List, Optional, Generator, Union
-import discover
+from typing import List
+import discovery.discover as discover
 
 
 class LlamaServerClient:
@@ -239,20 +239,19 @@ def save_result(path: str, record: dict):
 def build_graph_dot(adj_mat, labels):
     with open("graph.dot", "w") as f:
         f.write("digraph G {\n")
-        
+
         # Write nodes with labels
         for i, label in enumerate(labels):
             f.write(f'  {i} [label="{label}"];\n')
-        
+
         # Write directed edges
         for i in range(len(adj_mat)):
             for j in range(len(adj_mat[i])):
                 if adj_mat[i][j] != 0:
-                    f.write(f'  {i} -> {j};\n')
-        
+                    f.write(f"  {i} -> {j};\n")
+
         f.write("}\n")
         f.close()
-
 
 
 def COT(client, data):
@@ -293,7 +292,7 @@ def POT(client, data):
     # Program of thoughts
     for idx, item in data:
         prompt = format_QRData_item_POT(BENCHMARK_PATH, item)
-        causal_graph, labels = discover.discover(item["data_files"][0])
+        causal_graph, labels = discover.discover(os.path.join(BENCHMARK_PATH, "data", item["data_files"][0]))
         build_graph_dot(causal_graph, labels)
         answer = "def solution():\n"
         for chunk in client.generate(
@@ -347,7 +346,7 @@ def test_is_correct():
 if __name__ == "__main__":
     USE_BOXED = True
     MODEL_NAME = "unsloth/Qwen3-8B-Q5_K_M"
-    BENCHMARK_PATH = "QRData"
+    BENCHMARK_PATH = "QRData/benchmark"
     PROMPT_TYPE = "POT"  # COT, POT
     RESULTS_PATH = os.path.join(BENCHMARK_PATH, "results.jsonl")
     LOG = True
@@ -357,7 +356,11 @@ if __name__ == "__main__":
         data = json.load(f)
 
     print(f"Loaded {len(data):,} items")
-    data = [item for item in enumerate(data) if "Causality" in item[1]["meta_data"]["keywords"]]
+    data = [
+        item
+        for item in enumerate(data)
+        if (("Causality" in item[1]["meta_data"]["keywords"]) and (item[1]["meta_data"]["question_type"] == "numerical"))
+    ]
     print(f"Filtered for {len(data):,} causal items")
 
     if PROMPT_TYPE == "COT":

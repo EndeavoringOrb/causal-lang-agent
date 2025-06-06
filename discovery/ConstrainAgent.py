@@ -5,13 +5,13 @@ from typing import List, Tuple, Dict
 import numpy as np
 from tqdm import tqdm
 
-from LlamaCPPServerClient import LlamaCPPServerClient
-from config import (
+from discovery.LlamaCPPServerClient import LlamaCPPServerClient
+from discovery.config import (
     MODEL,
     LLAMA_CPP_SERVER_BASE_URL,
 )
 
-from LLMs import (
+from discovery.LLMs import (
     ConstrainLLM,
     DomainKnowledgeLLM,
     ConstrainReasoningLLM,
