@@ -5,11 +5,11 @@ from typing import List
 
 
 class LlamaCPPServerClient:
-    def __init__(self, base_url: str = "http://localhost:8080", model: str = "") -> None:
+    def __init__(self, base_url: str = "http://localhost:55551", model: str = "") -> None:
         """
         Initialize the LlamaCPPServerClient to interface with a llama.cpp server.
 
-        :param base_url: The base URL of the llama.cpp server API (default is http://localhost:8080).
+        :param base_url: The base URL of the llama.cpp server API (default is http://localhost:55551).
         :param model: A model identifier (optional, kept for consistency with other clients,
                       llama.cpp server typically doesn't use this directly for /v1/completions).
         """
@@ -21,10 +21,8 @@ class LlamaCPPServerClient:
         prompt: str,
         stream: bool = False,
         stop: List[str] = [],
-        log_response: bool = False,
+        log_response: bool = True,
         text_only: bool = True,
-        max_tokens: int = 512,
-        temperature: float = 0.5, # Explicitly added temperature
         **kwargs,
     ):
         """
@@ -46,8 +44,6 @@ class LlamaCPPServerClient:
             "prompt": prompt,
             "stream": stream,
             "stop": stop,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
             **kwargs,
         }
 

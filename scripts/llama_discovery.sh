@@ -39,7 +39,7 @@ cleanup() {
 trap cleanup EXIT SIGINT SIGTERM
 
 # Start llama-server in the background
-./llama.cpp/llama-server --model /home/azbelikoff/.cache/huggingface/hub/models--unsloth--Qwen3-8B-GGUF/snapshots/672575d5a4634e1c6f2a12b5a05e18f5a86f227f/Qwen3-8B-Q5_K_M.gguf --host localhost --port 55551 -ngl 999 &
+./llama.cpp/llama-server --model /home/azbelikoff/.cache/huggingface/hub/models--unsloth--Qwen3-8B-GGUF/snapshots/672575d5a4634e1c6f2a12b5a05e18f5a86f227f/Qwen3-8B-Q5_K_M.gguf --host localhost --port 55551 -ngl 999 -c &
 
 LLAMA_SERVER_PID=$!
 
@@ -52,5 +52,3 @@ fi
 
 # Run inference script
 python llama_server_discovery.py
-
-# llama-server will be killed automatically on script exit via trap

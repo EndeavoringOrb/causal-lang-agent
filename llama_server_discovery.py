@@ -7,6 +7,7 @@ import contextlib
 import pandas as pd
 from typing import List
 import discovery.discover as discover
+import discovery.config
 
 
 class LlamaServerClient:
@@ -292,7 +293,9 @@ def POT(client, data):
     # Program of thoughts
     for idx, item in data:
         prompt = format_QRData_item_POT(BENCHMARK_PATH, item)
-        causal_graph, labels = discover.discover(os.path.join(BENCHMARK_PATH, "data", item["data_files"][0]))
+        causal_graph, labels = discover.discover(
+            os.path.join(BENCHMARK_PATH, "data", item["data_files"][0])
+        )
         build_graph_dot(causal_graph, labels)
         answer = "def solution():\n"
         for chunk in client.generate(
@@ -316,6 +319,9 @@ def POT(client, data):
         final_answer, stdout, stderr = exec_with_output(
             answer, os.path.join(BENCHMARK_PATH, "data")
         )
+        print(f"Final Answer: {final_answer}")
+        print(f"STDOUT: {stdout}")
+        print(f"STDERR: {stderr}")
 
         correct = is_correct(final_answer, item)
 
@@ -345,12 +351,13 @@ def test_is_correct():
 
 if __name__ == "__main__":
     USE_BOXED = True
+    discovery.config.LLAMA_CPP_SERVER_BASE_URL = "http://localhost:55551"
     MODEL_NAME = "unsloth/Qwen3-8B-Q5_K_M"
     BENCHMARK_PATH = "QRData/benchmark"
     PROMPT_TYPE = "POT"  # COT, POT
     RESULTS_PATH = os.path.join(BENCHMARK_PATH, "results.jsonl")
     LOG = True
-    client = LlamaServerClient()
+    client = LlamaServerClient(discovery.config.LLAMA_CPP_SERVER_BASE_URL)
 
     with open(os.path.join(BENCHMARK_PATH, "QRData.json"), "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -359,17 +366,23 @@ if __name__ == "__main__":
     data = [
         item
         for item in enumerate(data)
-        if (("Causality" in item[1]["meta_data"]["keywords"]) and (item[1]["meta_data"]["question_type"] == "numerical"))
+        if (
+            ("Causality" in item[1]["meta_data"]["keywords"])
+            and (item[1]["meta_data"]["question_type"] == "numerical")
+        )
     ]
+
     def count_columns(csv_path):
         df = pd.read_csv(csv_path)
         return len(df.columns)
 
     data = sorted(
         data,
-        key=lambda item: count_columns(os.join(BENCHMARK_PATH, item[1]["data_files"][0]))
+        key=lambda item: count_columns(
+            os.path.join(BENCHMARK_PATH, "data", item[1]["data_files"][0])
+        ),
     )
-    print(f"Filtered for {len(data):,} causal items")
+    print(f"Filtered for {len(data):,} causal numerical items")
 
     if PROMPT_TYPE == "COT":
         COT(client, data)
