@@ -23,7 +23,7 @@ class LLMs:
         self.client = client  # The LLM client used for making API calls
         self.LLM_answer = None  # The most recent response from the language model
 
-    def inquiry(self, temperature: float = 0.5) -> str:
+    def inquiry(self) -> str:
         """Makes an inquiry to the language model.
 
         Args:
@@ -40,9 +40,16 @@ class LLMs:
             raise ValueError(
                 "prompt or system_prompt is None. Please call generate_prompt() method first."
             )
-        self.LLM_answer = self.client.inquire_LLMs(
-            self.prompt, self.system_prompt, temperature
-        )
+        self.LLM_answer = self.client.inquire_LLMs(self.prompt, self.system_prompt)
+        return self.LLM_answer
+
+    def inquiry_batched(self, prompts: List[Tuple[str, str]]) -> List[str]:
+        """Makes a batched inquiry to the language model.
+
+        Returns:
+            The language model's responses as a list of strings.
+        """
+        self.LLM_answer = self.client.inquire_LLMs_batched(prompts)
         return self.LLM_answer
 
     def show_prompt(self) -> Tuple[str, str]:
@@ -300,7 +307,7 @@ class ConstrainLLM(LLMs):
         self.system_prompt = "You are a helpful assistant for causal inference."
         return self.prompt, self.system_prompt
 
-    def downstream_processing(self) -> bool:
+    def downstream_processing(self, answers) -> List[bool]:
         """Processes LLM's response for background knowledge verification.
 
         Returns:
@@ -309,128 +316,13 @@ class ConstrainLLM(LLMs):
         Raises:
             ValueError: If LLM response is invalid or missing.
         """
-        if "Yes" in self.LLM_answer:
-            return 1
-        elif "No" in self.LLM_answer:
-            return 0
+        final = []
+        for answer in answers:
+            if "Yes" or "yes" in answer:
+                final.append(1)
+            elif "No" or "no" in answer:
+                final.append(0)
+            else:
+                final.append(-1)
 
-        # Used when LLMs can not produce valid response
-        # try:
-        #     if "Yes" or "yes" in self.LLM_answer:
-        #         return 1
-        #     elif "No" or "no" in self.LLM_answer:
-        #         return 0
-        #     else:
-        #         return -1
-        # except IndexError:
-        #     return -1
-
-
-class ConstrainReasoningLLM(LLMs):
-    """LLM class for background knowledge verification.
-
-    This class handles verification of background knowledge through LLM interactions.
-
-    Attributes:
-        domain_knowledge_dict: Dictionary of domain knowledge.
-    """
-
-    def __init__(
-        self,
-        client,
-        domain_knowledge_dict: dict,
-    ) -> None:
-        """Initializes the ConstrainLLM.
-
-        Args:
-            client: The LLM client to use.
-            domain_knowledge_dict: Dictionary containing domain knowledge.
-        """
-        super().__init__(client)
-        self.domain_knowledge_dict = (
-            domain_knowledge_dict  # Dictionary of domain knowledge
-        )
-
-    def generate_prompt(
-        self, causal_entity, result_entity, guess_number=2
-    ) -> Tuple[str, str]:
-        """Generates prompt for background knowledge verification.
-
-        Args:
-            causal_entity: The potential cause entity.
-            result_entity: The potential effect entity.
-
-        Returns:
-            A tuple containing (user prompt, system prompt).
-        """
-        self.prompt = (
-            f"Provide your {guess_number} best guesses and the probability that each is correct (0.0 to 1.0) for the following question."
-            f"Give ONLY the guesses and probabilities, no other words or explanation. "
-            f"Each guess should infer the relationship step by step and finally end with <Yes> or <No>.\n"
-            f"For example:\n\n"
-            f"G1: <first most likely guess, infer the relationship step by step and finally end with <Yes> or <No>>\n\n"
-            f"P1: <the probability between 0.0 and 1.0 that G1 is correct, without any extra comments; just the probability!>\n\n"
-            f"---"
-            f"G2: <second most likely guess, infer the relationship step by step and finally end with <Yes> or <No>>\n\n"
-            f"P2: <the probability between 0.0 and 1.0 that G2 is correct, without any extra comments; just the probability!> \n\n"
-            f"---"
-            f"The question is:"
-            f"Here is the explanation from an expert in the field"
-            f"regarding the causal relationship between {causal_entity} and {result_entity}:\n"
-            f"{self.domain_knowledge_dict[(causal_entity, result_entity)]}"
-            f"Considering the information above, if {causal_entity} is modified, will it have a direct impact on {result_entity}?\n"
-        )
-
-        self.system_prompt = "You are a helpful assistant for causal inference."
-        return self.prompt, self.system_prompt
-
-    def downstream_processing(self) -> bool:
-        """Processes LLM's response for background knowledge verification.
-
-        Returns:
-            1 if direct causal relationship exists, 0 otherwise.
-
-        Raises:
-            ValueError: If LLM response is invalid or missing.
-        """
-        if self.LLM_answer is None:
-            raise ValueError("LLM_answer is None. Please call inquiry() method first.")
-
-        # Split answer by "---" and extract guesses and probabilities
-        parts = self.LLM_answer.split("---")
-        print(parts)
-        guess_prob_pairs = []
-
-        for part in parts:
-            lines = part.strip().split("\n\n")
-            for i in range(len(lines) - 1):
-                try:
-                    if lines[i].startswith("G") and lines[i + 1].startswith("P"):
-                        guess = lines[i].split(": ", 1)[1].strip()
-                        prob_str = lines[i + 1].split(": ", 1)[1].strip()
-                        prob_str = "".join(
-                            c for c in prob_str if c.isdigit() or c == "."
-                        )
-                        prob = float(prob_str) if prob_str else 0.0
-                        guess_prob_pairs.append((prob, guess))
-                except Exception:
-                    continue
-        guess_prob_pairs.sort(reverse=True)
-
-        answer = guess_prob_pairs[0][1]
-        if "Yes" in answer:
-            return 1
-        elif "No" in answer:
-            return 0
-
-        # Used when LLMs can not produce valid response
-        # try:
-        #     answer = guess_prob_pairs[0][1]
-        #     if "Yes" or "yes" in answer:
-        #         return 1
-        #     elif "No" or "no" in answer:
-        #         return 0
-        #     else:
-        #         return -1
-        # except IndexError:
-        #     return -1
+        return final

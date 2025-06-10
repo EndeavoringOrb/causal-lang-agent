@@ -26,7 +26,7 @@ class LlamaServerClient:
         stop: List[str] = [],
         log_response: bool = False,
         text_only: bool = True,
-        max_tokens: int = 512,
+        max_tokens: int = 4096,
         **kwargs,
     ):
         """
@@ -72,30 +72,6 @@ class LlamaServerClient:
 
 
 def format_QRData_item(benchmark_path, item, rows=10):
-    text = "Data Description:\n"
-    text += item["data_description"]
-
-    for file_name in item["data_files"]:
-        text += file_name.strip(".csv") + ":\n"
-        df = pd.read_csv(os.path.join(benchmark_path, f"data/{file_name}"))
-        df = df.sample(frac=1, random_state=42)  # Shuffle the rows
-        text += str(df.head(rows)).strip() + "\n"
-
-    text += "Task:\n"
-    text += "You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the "
-    "provided data. The description and the table are listed above. Please analyze the table to answer the question. Do not write "
-    "any code in your answer. Ensure that your final answer is positioned at the very end of your output, adhering to the format "
-    "'Final answer: [answer]'. The final answer should be a number or a short phrase and should be written in a new line."
-
-    text += "\nQuestion:\n"
-    text += item["question"].strip()
-
-    text += "\nResponse\nLet's think step by step."
-
-    return text
-
-
-def format_QRData_item_POT(benchmark_path, item, rows=10):
     text = """You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the 
 provided data. The description and the question can be found below. Please analyze the first 10 rows of the table and write 
 python code to analyze the whole table. You must the Dowhy library to build a causal model and perform effect estimation. The returned value of the program is supposed to be 
@@ -109,12 +85,12 @@ def solution():
 
     model = CausalModel(
         data = data,
-        treatment = data["treatment_col"]
-        outcome = data["outcome_col"]
+        treatment = "treatment_col"
+        outcome = "outcome_col"
         graph = "graph.dot"
     )
     identified_estimand = model.identify_effect()
-    answer = model.estimate_effect(identified_estimand, method_name="appropriate_method")
+    answer = model.estimate_effect(identified_estimand, method_name=...)
     return answer
 ```""".strip()
 
@@ -243,56 +219,22 @@ def build_graph_dot(adj_mat, labels):
 
         # Write nodes with labels
         for i, label in enumerate(labels):
-            f.write(f'  {i} [label="{label}"];\n')
+            f.write(f"  {label};\n")
 
         # Write directed edges
         for i in range(len(adj_mat)):
             for j in range(len(adj_mat[i])):
                 if adj_mat[i][j] != 0:
-                    f.write(f"  {i} -> {j};\n")
+                    f.write(f"  {labels[i]} -> {labels[j]};\n")
 
         f.write("}\n")
         f.close()
 
 
-def COT(client, data):
-    # Chain of thought
-    for idx, item in data:
-        prompt = format_QRData_item(BENCHMARK_PATH, item)
-        answer = ""
-        for chunk in client.generate(
-            prompt=prompt, stream=True, log_response=LOG, text_only=True
-        ):
-            answer += chunk
-
-        extract_prompt = extract_answer(item["question"], answer)
-        final_answer = ""
-        for chunk in client.generate(
-            prompt=extract_prompt,
-            stream=True,
-            log_response=LOG,
-            text_only=True,
-            stop=["$"] if USE_BOXED else ["\n"],
-        ):
-            final_answer += chunk
-
-        correct = is_correct(final_answer, item)
-
-        result_record = {
-            "model": MODEL_NAME,
-            "prompt_type": PROMPT_TYPE,
-            "idx": idx,
-            "answer": item["answer"],
-            "pred": final_answer,
-            "correct": correct,
-        }
-        save_result(RESULTS_PATH, result_record)
-
-
 def POT(client, data):
     # Program of thoughts
-    for idx, item in data:
-        prompt = format_QRData_item_POT(BENCHMARK_PATH, item)
+    for idx, item in data[:1]:
+        prompt = format_QRData_item(BENCHMARK_PATH, item)
         causal_graph, labels = discover.discover(
             os.path.join(BENCHMARK_PATH, "data", item["data_files"][0])
         )
@@ -306,6 +248,8 @@ def POT(client, data):
             stop=["```"],
         ):
             answer += chunk
+        with open("answer0.txt", "w", encoding="utf-8") as f:
+            f.write(answer)
 
         lines = answer.splitlines()
         answer = []
@@ -327,7 +271,6 @@ def POT(client, data):
 
         result_record = {
             "model": MODEL_NAME,
-            "prompt_type": PROMPT_TYPE,
             "idx": idx,
             "answer": item["answer"],
             "pred": final_answer,
@@ -352,9 +295,9 @@ def test_is_correct():
 if __name__ == "__main__":
     USE_BOXED = True
     discovery.config.LLAMA_CPP_SERVER_BASE_URL = "http://localhost:55551"
-    MODEL_NAME = "unsloth/Qwen3-8B-Q5_K_M"
+    discovery.config.MAX_PARALLEL_REQUESTS = 1
+    MODEL_NAME = "unsloth/gemma-3-27b-it-UD-Q8_K_XL"
     BENCHMARK_PATH = "QRData/benchmark"
-    PROMPT_TYPE = "POT"  # COT, POT
     RESULTS_PATH = os.path.join(BENCHMARK_PATH, "results.jsonl")
     LOG = True
     client = LlamaServerClient(discovery.config.LLAMA_CPP_SERVER_BASE_URL)
@@ -383,8 +326,6 @@ if __name__ == "__main__":
         ),
     )
     print(f"Filtered for {len(data):,} causal numerical items")
+    print(data[0])
 
-    if PROMPT_TYPE == "COT":
-        COT(client, data)
-    elif PROMPT_TYPE == "POT":
-        POT(client, data)
+    POT(client, data)

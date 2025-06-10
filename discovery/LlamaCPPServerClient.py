@@ -1,11 +1,18 @@
 import requests
 import json
 import time
-from typing import List
+from typing import List, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
 
 
 class LlamaCPPServerClient:
-    def __init__(self, base_url: str = "http://localhost:55551", model: str = "") -> None:
+    def __init__(
+        self,
+        base_url: str = "http://localhost:55551",
+        model: str = "",
+        max_parallel_requests: int = 4,
+    ) -> None:
         """
         Initialize the LlamaCPPServerClient to interface with a llama.cpp server.
 
@@ -15,13 +22,14 @@ class LlamaCPPServerClient:
         """
         self.base_url = base_url.rstrip("/")
         self.model = model  # Stored for consistency, not directly used by the server's completions endpoint.
+        self.max_parallel_requests = max_parallel_requests
 
     def _generate(
         self,
-        prompt: str,
-        stream: bool = False,
+        prompt: str | list[dict[str, str]],
+        stream: bool = True,
         stop: List[str] = [],
-        log_response: bool = True,
+        log_response: bool = False,
         text_only: bool = True,
         **kwargs,
     ):
@@ -39,13 +47,21 @@ class LlamaCPPServerClient:
         :param kwargs: Additional parameters to pass to the API.
         :return: The generated text as a string.
         """
-        url = f"{self.base_url}/v1/completions"
         payload = {
-            "prompt": prompt,
             "stream": stream,
-            "stop": stop,
             **kwargs,
         }
+
+        if isinstance(prompt, str):
+            url = f"{self.base_url}/v1/completions"
+            payload["prompt"] = prompt
+            is_chat = False
+        else:
+            url = f"{self.base_url}/v1/chat/completions"
+            payload["messages"] = prompt
+            is_chat = True
+        if stop:
+            payload["stop"] = stop
 
         response = requests.post(url, json=payload, stream=stream)
         response.raise_for_status()
@@ -59,22 +75,33 @@ class LlamaCPPServerClient:
                     if line == "data: [DONE]":
                         break
                     try:
-                        line_data = json.loads(line[5:]) # Strip "data: " prefix
+                        line_data = json.loads(line[5:])  # Strip "data: " prefix
                         if text_only:
-                            content = line_data["choices"][0]["text"]
+                            if is_chat:
+                                if "content" not in line_data["choices"][0]["delta"]:
+                                    continue
+                                content = line_data["choices"][0]["delta"]["content"]
+                                if content is None:
+                                    continue
+                            else:
+                                content = line_data["choices"][0]["text"]
                         else:
-                            content = line_data # Handle non-text_only structure if needed
+                            content = (
+                                line_data  # Handle non-text_only structure if needed
+                            )
                         if log_response:
                             print(content, end="", flush=True)
                         full_response += content
                     except json.JSONDecodeError as e:
                         print(f"JSON decode error: {e} - Line: {line}")
                         continue
+            with open("full_response.txt", "a", encoding="utf-8") as f:
+                f.write("\n" * 20 + full_response)
             return full_response
         else:
             return response.json()["choices"][0]["text"]
 
-    def inquire_LLMs(self, prompt: str, system_prompt: str, temperature: float = 0.5):
+    def inquire_LLMs(self, prompt: str, system_prompt: str):
         """
         Inquires the LLM with the given user prompt and system prompt.
         Combines the system and user prompt into a single input string for the llama.cpp server.
@@ -84,17 +111,15 @@ class LlamaCPPServerClient:
         :param temperature: Sampling temperature for controlling randomness.
         :return: The LLM's generated response as a string.
         """
-        # Combine system and user prompts into a format suitable for instruction-tuned models
-        # and the /v1/completions endpoint. This is a common and often effective approach.
-        full_prompt = f"{system_prompt}\n\n{prompt}"
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt},
+        ]
 
         while True:
             try:
                 output = self._generate(
-                    prompt=full_prompt,
-                    temperature=temperature,
-                    # No specific stop tokens added by default, as the original clients
-                    # also don't explicitly pass them.
+                    prompt=messages,
                 )
                 return output
             except requests.exceptions.RequestException as e:
@@ -105,3 +130,38 @@ class LlamaCPPServerClient:
                 print(f"An unexpected error occurred: {e}")
                 print("Retrying after 10 seconds...")
                 time.sleep(10)
+
+    def inquire_LLMs_batched(self, prompts: List[Tuple[str, str]]) -> List[str]:
+        """
+        Run multiple LLM inquiries in parallel, each with its own (user_prompt, system_prompt).
+        """
+        results = [None] * len(prompts)
+
+        def run_inquiry(idx: int, user_prompt: str, system_prompt: str):
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
+            while True:
+                try:
+                    result = self._generate(prompt=messages)
+                    return (idx, result)
+                except requests.exceptions.RequestException as e:
+                    print(f"[{idx}] Request error: {e} – retrying in 10s")
+                    time.sleep(10)
+                except Exception as e:
+                    print(f"[{idx}] Unexpected error: {e} – retrying in 10s")
+                    time.sleep(10)
+
+        with ThreadPoolExecutor(max_workers=self.max_parallel_requests) as executor:
+            futures = [
+                executor.submit(run_inquiry, i, user_prompt, system_prompt)
+                for i, (user_prompt, system_prompt) in enumerate(prompts)
+            ]
+            for future in tqdm(
+                as_completed(futures), desc="Generating responses", total=len(prompts)
+            ):
+                idx, output = future.result()
+                results[idx] = output
+
+        return results

@@ -2,6 +2,7 @@ from discovery.ConstrainAgent import ConstrainNormalAgent
 from discovery.CausalDiscovery import (
     causal_discovery,
 )
+from discovery.visualize import visualize_graph
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
@@ -39,25 +40,39 @@ def discover(filename):
 
     print(f"Running {causal_discovery_algorithm} algorithm...")
     adjacency_matrix = causal_discovery(data, labels, method=causal_discovery_algorithm)
+    visualize_graph(
+        adjacency_matrix,
+        labels,
+        f"./images/{causal_discovery_algorithm}_graph.png",
+    )
 
     print("Running ConstrainAgent...")
     constrain_agent = ConstrainNormalAgent(
         labels,
         graph_matrix=adjacency_matrix,
         causal_discovery_algorithm=causal_discovery_algorithm,
-        use_reasoning=False,
     )
 
     constraint_matrix = constrain_agent.run(
         use_cache=False,
         cache_path=f"./cache/Domain_knowledge/{filename.strip('.csv')}/{causal_discovery_algorithm}",
     )
+    print("The constraint matrix is:")
+    print(constraint_matrix)
 
     adjacency_matrix_optimized = causal_discovery(
         data,
         labels,
         method=causal_discovery_algorithm,
         constraint_matrix=constraint_matrix,
+    )
+    print("The optimized adjacency matrix is:")
+    print(adjacency_matrix_optimized)
+
+    visualize_graph(
+        adjacency_matrix_optimized,
+        labels,
+        f"./images/{causal_discovery_algorithm}_CCAgent.png",
     )
 
     return adjacency_matrix_optimized, labels

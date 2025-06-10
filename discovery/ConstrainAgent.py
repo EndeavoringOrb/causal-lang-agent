@@ -6,20 +6,16 @@ import numpy as np
 from tqdm import tqdm
 
 from discovery.LlamaCPPServerClient import LlamaCPPServerClient
-from discovery.config import (
-    MODEL,
-    LLAMA_CPP_SERVER_BASE_URL,
-)
+from discovery.config import MODEL, LLAMA_CPP_SERVER_BASE_URL, MAX_PARALLEL_REQUESTS
 
 from discovery.LLMs import (
     ConstrainLLM,
     DomainKnowledgeLLM,
-    ConstrainReasoningLLM,
 )
 
 
 def selectClient():
-    return LlamaCPPServerClient(LLAMA_CPP_SERVER_BASE_URL, MODEL)
+    return LlamaCPPServerClient(LLAMA_CPP_SERVER_BASE_URL, MODEL, MAX_PARALLEL_REQUESTS)
 
 
 class ConstrainAgent:
@@ -48,7 +44,6 @@ class ConstrainNormalAgent(ConstrainAgent):
         node_information: List[str] = None,
         graph_matrix: np.ndarray = None,
         causal_discovery_algorithm: str = None,
-        use_reasoning: bool = False,
     ) -> None:
         """Initializes the ConstrainAgent with dataset and domain information.
 
@@ -70,7 +65,6 @@ class ConstrainNormalAgent(ConstrainAgent):
         self.domain_knowledge_dict = None  # Stores domain knowledge responses from LLM
 
         self.node_num = len(self.label)
-        self.use_reasoning = use_reasoning
         # Initialize LLM for generating domain knowledge about causal relationships
         client = selectClient()
 
@@ -94,14 +88,14 @@ class ConstrainNormalAgent(ConstrainAgent):
                 - domain knowledge dictionary
         """
         print(
-            f"Loading domain knowledge from {cache_path}/prompt_dict{'_with_info' if self.dataset_information else ''}{'_reasoning' if self.use_reasoning else ''}.npy"
+            f"Loading domain knowledge from {cache_path}/prompt_dict{'_with_info' if self.dataset_information else ''}.npy"
         )
         self.prompt_dict = np.load(
-            f"{cache_path}/prompt_dict{'_with_info' if self.dataset_information else ''}{'_reasoning' if self.use_reasoning else ''}.npy",
+            f"{cache_path}/prompt_dict{'_with_info' if self.dataset_information else ''}.npy",
             allow_pickle=True,
         ).item()
         self.domain_knowledge_dict = np.load(
-            f"{cache_path}/domain_knowledge_dict{'_with_info' if self.dataset_information else ''}{'_reasoning' if self.use_reasoning else ''}.npy",
+            f"{cache_path}/domain_knowledge_dict{'_with_info' if self.dataset_information else ''}.npy",
             allow_pickle=True,
         ).item()
         return self.prompt_dict, self.domain_knowledge_dict
@@ -115,13 +109,23 @@ class ConstrainNormalAgent(ConstrainAgent):
         if not os.path.exists(cache_path):
             os.makedirs(cache_path)
         np.save(
-            f"{cache_path}/prompt_dict{'_with_info' if self.dataset_information else ''}{'_reasoning' if self.use_reasoning else ''}.npy",
+            f"{cache_path}/prompt_dict{'_with_info' if self.dataset_information else ''}.npy",
             self.prompt_dict,
         )
         np.save(
-            f"{cache_path}/domain_knowledge_dict{'_with_info' if self.dataset_information else ''}{'_reasoning' if self.use_reasoning else ''}.npy",
+            f"{cache_path}/domain_knowledge_dict{'_with_info' if self.dataset_information else ''}.npy",
             self.domain_knowledge_dict,
         )
+
+    def get_indices(self):
+        indices = []
+
+        # Generate domain knowledge for each directed variable pair
+        for i in range(self.node_num):
+            for j in range(i + 1, self.node_num):
+                indices.append((i, j))
+
+        return indices
 
     def generate_domain_knowledge(
         self, use_cache: bool = True, cache_path=None
@@ -146,24 +150,23 @@ class ConstrainNormalAgent(ConstrainAgent):
         self.prompt_dict = {}
         self.domain_knowledge_dict = {}
 
+        prompts = []
+
+        indices = self.get_indices()
+
         # Generate domain knowledge for each directed variable pair
-        for i, j in tqdm(
-            [
-                (i, j)
-                for i in range(self.node_num)
-                for j in range(self.node_num)
-                if i != j
-            ],
-            desc="Generating domain knowledge",
-        ):
-            self.prompt_dict[(self.label[i], self.label[j])] = (
+        for i, j in indices:
+            prompts.append(
                 self.domain_knowledge_LLM.generate_prompt(
                     i, j, node_information=self.node_information
                 )
             )
-            self.domain_knowledge_dict[(self.label[i], self.label[j])] = (
-                self.domain_knowledge_LLM.inquiry(temperature=0.5)
-            )
+
+        answers = self.domain_knowledge_LLM.inquiry_batched(prompts)
+
+        for idx, (i, j) in enumerate(tqdm(indices, desc="Generating domain knowledge")):
+            self.prompt_dict[(self.label[i], self.label[j])] = prompts[idx]
+            self.domain_knowledge_dict[(self.label[i], self.label[j])] = answers[idx]
 
         # Cache results if path provided
         if cache_path is not None:
@@ -188,30 +191,31 @@ class ConstrainNormalAgent(ConstrainAgent):
         #! Must put here, otherwise the domain knowledge dict is empty
         client = selectClient()
 
-        if self.use_reasoning:
-            self.constrain_LLM = ConstrainReasoningLLM(
-                client,
-                self.domain_knowledge_dict,
-            )
-        else:
-            self.constrain_LLM = ConstrainLLM(
-                client,
-                self.domain_knowledge_dict,
-            )
+        self.constrain_LLM = ConstrainLLM(
+            client,
+            self.domain_knowledge_dict,
+        )
         self.constrain_matrix = np.full((self.node_num, self.node_num), -1)
-        for i, j in tqdm(
-            [
-                (i, j)
-                for i in range(self.node_num)
-                for j in range(self.node_num)
-                if i != j
-            ],
-            desc="Generating constraint matrix",
-        ):
+
+        prompts = []
+        indices = self.get_indices()
+
+        for i, j in indices:
             causal_entity, result_entity = self.label[i], self.label[j]
-            self.constrain_LLM.generate_prompt(causal_entity, result_entity)
-            self.constrain_LLM.inquiry(temperature=0.8)
-            self.constrain_matrix[i, j] = self.constrain_LLM.downstream_processing()
+            prompts.append(
+                self.constrain_LLM.generate_prompt(causal_entity, result_entity)
+            )
+
+        answers = self.constrain_LLM.inquiry_batched(prompts)
+        final = self.constrain_LLM.downstream_processing(answers)
+
+        for idx, (i, j) in enumerate(
+            tqdm(
+                indices,
+                desc="Generating constraint matrix",
+            )
+        ):
+            self.constrain_matrix[i, j] = final[idx]
         return self.constrain_matrix
 
     def run(self, use_cache: bool = True, cache_path=None) -> np.ndarray:

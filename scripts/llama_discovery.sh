@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=QRData_llama_server
+#SBATCH --job-name=llama_discovery
 #SBATCH --time=24:00:00
 #SBATCH --partition=short
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:A100:1
 #SBATCH --mem=64G
 #SBATCH --output=slurm_logs/%j.out
 
@@ -39,7 +39,8 @@ cleanup() {
 trap cleanup EXIT SIGINT SIGTERM
 
 # Start llama-server in the background
-./llama.cpp/llama-server --model /home/azbelikoff/.cache/huggingface/hub/models--unsloth--Qwen3-8B-GGUF/snapshots/672575d5a4634e1c6f2a12b5a05e18f5a86f227f/Qwen3-8B-Q5_K_M.gguf --host localhost --port 55551 -ngl 999 &
+./llama.cpp/llama-server --model /home/azbelikoff/.cache/huggingface/hub/models--unsloth--Qwen3-8B-GGUF/snapshots/672575d5a4634e1c6f2a12b5a05e18f5a86f227f/Qwen3-8B-Q5_K_M.gguf --host localhost --port 55551 -ngl 999 -c 4096 &
+# ./llama.cpp/llama-server --model /home/azbelikoff/projects/2025_Summer/models/gemma-3-27b-it-UD-Q8_K_XL.gguf --host localhost --port 55551 -ngl 999 -c 8192 &
 
 LLAMA_SERVER_PID=$!
 
