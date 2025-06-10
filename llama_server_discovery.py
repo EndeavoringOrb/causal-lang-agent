@@ -75,7 +75,7 @@ def format_QRData_item(benchmark_path, item, rows=10):
     text = """You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the 
 provided data. The description and the question can be found below. Please analyze the first 10 rows of the table and write 
 python code to analyze the whole table. You must the Dowhy library to build a causal model and perform effect estimation. The returned value of the program is supposed to be 
-the answer. The path to the causal graph is graph.dot. After the solution function is written, don't write any more code and enter ```. The general format of the code should be
+the answer. The path to the causal graph is graph.gml. After the solution function is written, don't write any more code and enter ```. The general format of the code should be
 ```python
 def solution():
     from dowhy import CausalModel
@@ -87,7 +87,7 @@ def solution():
         data = data,
         treatment = "treatment_col"
         outcome = "outcome_col"
-        graph = "graph.dot"
+        graph = "graph.gml"
     )
     identified_estimand = model.identify_effect()
     answer = model.estimate_effect(identified_estimand, method_name=...)
@@ -214,20 +214,20 @@ def save_result(path: str, record: dict):
 
 
 def build_graph_dot(adj_mat, labels):
-    with open("graph.dot", "w") as f:
-        f.write("digraph G {\n")
+    with open("graph.gml", "w") as f:
+        f.write("graph [\ndirected 1\n")
 
         # Write nodes with labels
         for i, label in enumerate(labels):
-            f.write(f"  {label};\n")
+            f.write(f"node [\nid {label}\n]\n")
 
         # Write directed edges
         for i in range(len(adj_mat)):
             for j in range(len(adj_mat[i])):
                 if adj_mat[i][j] != 0:
-                    f.write(f"  {labels[i]} -> {labels[j]};\n")
+                    f.write(f"edge [\nsource {labels[i]}\ntarget {labels[j]}\n]\n")
 
-        f.write("}\n")
+        f.write("]")
         f.close()
 
 
