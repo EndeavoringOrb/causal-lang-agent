@@ -17,6 +17,8 @@ MODEL_NAME = "unsloth/gemma-3-27b-it-UD-Q8_K_XL"
 BENCHMARK_PATH = "QRData/benchmark"
 RESULTS_PATH = os.path.join(BENCHMARK_PATH, "results.jsonl")
 LOG = True
+THINK = True
+MAX_EXTRA_TURNS = 3
 import discovery.discover as discover
 
 
@@ -334,8 +336,6 @@ def POT(client, data, max_num_examples=1):
             stop=["```"],
         ):
             answer += chunk
-        with open("answer0.txt", "w", encoding="utf-8") as f:
-            f.write(answer)
 
         lines = answer.splitlines()
         answer = []
@@ -386,8 +386,6 @@ def ReAct(client: LlamaServerClient, data, max_num_examples=1, max_extra_turns=3
             stop=["```"],
         ):
             answer += chunk
-        with open("answer0.txt", "w", encoding="utf-8") as f:
-            f.write(answer)
 
         lines = answer.splitlines()
         answer = []
@@ -431,8 +429,6 @@ def ReAct(client: LlamaServerClient, data, max_num_examples=1, max_extra_turns=3
                 stop=["```"],
             ):
                 answer += chunk
-            with open("answer0.txt", "w", encoding="utf-8") as f:
-                f.write(answer)
 
             lines = answer.splitlines()
             answer = []
@@ -460,6 +456,126 @@ def ReAct(client: LlamaServerClient, data, max_num_examples=1, max_extra_turns=3
             "idx": idx,
             "answer": item["answer"],
             "pred": final_answer,
+            "correct": correct,
+        }
+        save_result(RESULTS_PATH, result_record)
+
+
+def ReAct_think(client: LlamaServerClient, data, max_num_examples=1, max_extra_turns=3):
+    # Program of thoughts
+    for idx, item in data[: min(len(data), max_num_examples)]:
+        prompt, _ = format_QRData_item_ReAct(BENCHMARK_PATH, item)
+        causal_graph, labels = discover.discover(
+            os.path.join(BENCHMARK_PATH, "data", item["data_files"][0])
+        )
+        build_graph_dot(causal_graph, labels, os.path.join(BENCHMARK_PATH, "data"))
+        answer = ""
+        messages = [
+            {"role": "user", "content": prompt},
+        ]
+        for chunk in client.generate(
+            prompt=messages,
+            stream=True,
+            log_response=LOG,
+            text_only=True,
+        ):
+            answer += chunk
+
+        # Remove thinking from answer
+        full_answer = answer[answer.index("</think>") + 1 :]
+
+        # Extract code from answer
+        code_start = full_answer.rindex("```python")
+        code_end = full_answer.rindex("```")
+        lines = full_answer[code_start + len("```python") : code_end].splitlines()
+        answer = []
+        for line in lines:
+            if line.strip().startswith("return"):
+                answer.append(line)
+                break
+            if line.strip() == "```python":
+                continue
+            answer.append(line)
+        answer = "\n".join(answer)
+
+        full_answer = (
+            full_answer[:code_start]
+            + "```python"
+            + answer
+            + "```"
+            + full_answer[code_end + 1 :]
+        )
+
+        output, stdout, stderr = exec_with_output(
+            answer, os.path.join(BENCHMARK_PATH, "data")
+        )
+
+        for _ in range(max_extra_turns):
+            if stderr == "":
+                break
+
+            print(f"Answer: {output}")
+            print(f"STDOUT: {stdout}")
+            print(f"STDERR: {stderr}")
+
+            messages.extend(
+                [
+                    {"role": "assistant", "content": full_answer},
+                    {
+                        "role": "user",
+                        "content": f"Output: {output}\nSTDOUT: {stdout}\nSTDERR: {stderr}",
+                    },
+                ]
+            )
+            answer = ""
+            for chunk in client.generate(
+                prompt=messages,
+                stream=True,
+                log_response=LOG,
+                text_only=True,
+            ):
+                answer += chunk
+
+            # Remove thinking from answer
+            full_answer = answer[answer.index("</think>") + 1 :]
+
+            # Extract code from answer
+            code_start = full_answer.rindex("```python")
+            code_end = full_answer.rindex("```")
+            lines = full_answer[code_start:code_end].splitlines()
+            answer = []
+            for line in lines:
+                if line.strip().startswith("return"):
+                    answer.append(line)
+                    break
+                if line.strip() == "```python":
+                    continue
+                answer.append(line)
+            answer = "\n".join(answer)
+
+            full_answer = (
+                full_answer[:code_start]
+                + "```python"
+                + answer
+                + "```"
+                + full_answer[code_end + 1 :]
+            )
+
+            output, stdout, stderr = exec_with_output(
+                answer, os.path.join(BENCHMARK_PATH, "data")
+            )
+
+        print(f"Final Answer: {output}")
+        print(f"STDOUT: {stdout}")
+        print(f"STDERR: {stderr}")
+
+        correct = is_correct(output, item)
+
+        result_record = {
+            "model": MODEL_NAME,
+            "idx": idx,
+            "answer": item["answer"],
+            "pred": output,
             "correct": correct,
         }
         save_result(RESULTS_PATH, result_record)
@@ -507,4 +623,7 @@ if __name__ == "__main__":
     print(f"Filtered for {len(data):,} causal numerical items")
     print(data[0])
 
-    ReAct(client, data, 3)
+    if THINK:
+        ReAct_think(client, data, MAX_EXTRA_TURNS)
+    else:
+        ReAct(client, data, MAX_EXTRA_TURNS)
