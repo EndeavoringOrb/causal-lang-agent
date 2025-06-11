@@ -3,78 +3,115 @@ import io
 import re
 import json
 import requests
+import traceback
 import contextlib
 import pandas as pd
 from typing import List
-import discovery.discover as discover
+
 import discovery.config
+
+USE_BOXED = True
+discovery.config.LLAMA_CPP_SERVER_BASE_URL = "http://localhost:55551"
+discovery.config.MAX_PARALLEL_REQUESTS = 1
+MODEL_NAME = "unsloth/gemma-3-27b-it-UD-Q8_K_XL"
+BENCHMARK_PATH = "QRData/benchmark"
+RESULTS_PATH = os.path.join(BENCHMARK_PATH, "results.jsonl")
+LOG = True
+import discovery.discover as discover
 
 
 class LlamaServerClient:
-    def __init__(self, base_url: str = "http://localhost:55551"):
+    def __init__(
+        self,
+        base_url: str = "http://localhost:8080",
+    ) -> None:
         """
-        Initialize the LlamaServerClient with a specific base URL.
+        Initialize the LlamaCPPServerClient to interface with a llama.cpp server.
 
-        :param base_url: The base URL of the llama-server API.
+        :param base_url: The base URL of the llama.cpp server API (default is http://localhost:8080).
+        :param model: A model identifier (optional, kept for consistency with other clients,
+                      llama.cpp server typically doesn't use this directly for /v1/completions).
         """
         self.base_url = base_url.rstrip("/")
 
     def generate(
         self,
-        prompt: str,
-        stream: bool = False,
+        prompt: str | list[dict[str, str]],
+        stream: bool = True,
         stop: List[str] = [],
         log_response: bool = False,
         text_only: bool = True,
-        max_tokens: int = 4096,
         **kwargs,
     ):
         """
-        Generate text from the given prompt using the specified model.
+        Internal method to interact with the llama.cpp server's /v1/completions endpoint.
+        This method is adapted from the LlamaServerClient example provided.
 
         :param prompt: The input prompt string.
-        :param stream: Whether to stream the response.
+        :param stream: Whether to stream the response (currently collects full response if True).
         :param stop: A list of stop sequences.
-        :param log_response: If stream is true, prints responses as they are streamed back
-        :param text_only: If true, only return text
+        :param log_response: If stream is true, prints responses as they are streamed back.
+        :param text_only: If true, only return text (assumed for this client).
+        :param max_tokens: Maximum number of tokens to generate.
+        :param temperature: Sampling temperature for controlling randomness.
         :param kwargs: Additional parameters to pass to the API.
-        :return: The generated text as a string or a generator yielding strings if streaming.
+        :return: The generated text as a string.
         """
-        url = f"{self.base_url}/v1/completions"
         payload = {
-            "prompt": prompt,
             "stream": stream,
-            "stop": stop,
-            "max_tokens": max_tokens,
             **kwargs,
         }
+
+        if isinstance(prompt, str):
+            url = f"{self.base_url}/v1/completions"
+            payload["prompt"] = prompt
+            is_chat = False
+        else:
+            url = f"{self.base_url}/v1/chat/completions"
+            payload["messages"] = prompt
+            is_chat = True
+        if stop:
+            payload["stop"] = stop
 
         response = requests.post(url, json=payload, stream=stream)
         response.raise_for_status()
 
         if stream:
-
-            def stream_generator():
-                for line in response.iter_lines(decode_unicode=True):
-                    if line:
-                        if line == "data: [DONE]":
-                            break
-                        line = json.loads(line[5:])
+            for line in response.iter_lines(decode_unicode=True):
+                if line:
+                    if line == "data: [DONE]":
+                        break
+                    try:
+                        line_data = json.loads(line[5:])  # Strip "data: " prefix
                         if text_only:
-                            line = line["choices"][0]["text"]
+                            if is_chat:
+                                if "content" not in line_data["choices"][0]["delta"]:
+                                    continue
+                                content = line_data["choices"][0]["delta"]["content"]
+                                if content is None:
+                                    continue
+                            else:
+                                content = line_data["choices"][0]["text"]
+                        else:
+                            content = (
+                                line_data  # Handle non-text_only structure if needed
+                            )
                         if log_response:
-                            print(line, end="", flush=True)
-                        yield line
-
-            return stream_generator()
+                            print(content, end="", flush=True)
+                        yield content
+                    except json.JSONDecodeError as e:
+                        print(f"JSON decode error: {e} - Line: {line}")
+                        continue
         else:
             return response.json()["choices"][0]["text"]
 
 
 def format_QRData_item(benchmark_path, item, rows=10):
-    text = """You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the 
+    with open("causal_model_docs.py", "r", encoding="utf-8") as f:
+        causal_model_docs = f.read().strip()
+    text = f"""You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the 
 provided data. The description and the question can be found below. Please analyze the first 10 rows of the table and write 
-python code to analyze the whole table. You must the Dowhy library to build a causal model and perform effect estimation. The returned value of the program is supposed to be 
+python code to analyze the whole table. You must use the DoWhy library to build a causal model and perform effect estimation. The returned value of the program should be 
 the answer. The path to the causal graph is graph.gml. After the solution function is written, don't write any more code and enter ```. The general format of the code should be
 ```python
 def solution():
@@ -91,7 +128,11 @@ def solution():
     )
     identified_estimand = model.identify_effect()
     answer = model.estimate_effect(identified_estimand, method_name=...)
-    return answer
+    return answer.value
+```
+Here is documentation for the CausalModel class:
+```python
+{causal_model_docs}
 ```""".strip()
 
     text += "\nData Description:\n"
@@ -110,6 +151,51 @@ def solution():
     text += "\nResponse\n```python\ndef solution():\n"
 
     return text
+
+
+def format_QRData_item_ReAct(benchmark_path, item, rows=10):
+    with open("causal_model_docs.py", "r", encoding="utf-8") as f:
+        causal_model_docs = f.read().strip()
+    text = f"""You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the 
+provided data. The description and the question can be found below. Please analyze the first 10 rows of the table and write 
+python code to analyze the whole table. You must use the DoWhy library to build a causal model and perform effect estimation. The returned value of the program should be 
+the answer. The path to the causal graph is graph.gml. After the solution function is written, don't write any more code and enter ```. The general format of the code should be
+```python
+def solution():
+    from dowhy import CausalModel
+    import pandas as pd
+
+    data = pd.read_csv(filename)
+
+    model = CausalModel(
+        data = data,
+        treatment = "treatment_col"
+        outcome = "outcome_col"
+        graph = "graph.gml"
+    )
+    identified_estimand = model.identify_effect()
+    answer = model.estimate_effect(identified_estimand, method_name=...)
+    return answer.value
+```
+Here is documentation for the CausalModel class:
+```python
+{causal_model_docs}
+```""".strip()
+
+    text += "\nData Description:\n"
+    text += item["data_description"]
+
+    text += f"\nFirst {rows} rows of the data:\n"
+    for file_name in item["data_files"]:
+        text += file_name.strip(".csv") + ":\n"
+        df = pd.read_csv(os.path.join(benchmark_path, f"data/{file_name}"))
+        df = df.sample(frac=1, random_state=42)  # Shuffle the rows
+        text += str(df.head(rows)).strip() + "\n"
+
+    text += "\nQuestion:\n"
+    text += item["question"].strip()
+
+    return text, "```python\ndef solution():\n"
 
 
 def extract_boxed_content(text):
@@ -150,8 +236,8 @@ def exec_with_output(code: str, working_dir: str | None = None):
             sol = {}
             exec(code, globals(), sol)
             result = sol["solution"]()
-    except Exception as e:
-        print(f"Exception: {e}", file=stderr_buffer)
+    except Exception:
+        traceback.print_exc(file=stderr_buffer)
     finally:
         if working_dir:
             os.chdir(original_dir)
@@ -213,32 +299,32 @@ def save_result(path: str, record: dict):
         f.write("\n")
 
 
-def build_graph_dot(adj_mat, labels):
-    with open("graph.gml", "w") as f:
+def build_graph_dot(adj_mat, labels, working_dir):
+    with open(os.path.join(working_dir, "graph.gml"), "w") as f:
         f.write("graph [\ndirected 1\n")
 
         # Write nodes with labels
         for i, label in enumerate(labels):
-            f.write(f"node [\nid {label}\n]\n")
+            f.write(f'node [\nid {i}\nlabel "{label}"\n]\n')
 
         # Write directed edges
         for i in range(len(adj_mat)):
             for j in range(len(adj_mat[i])):
                 if adj_mat[i][j] != 0:
-                    f.write(f"edge [\nsource {labels[i]}\ntarget {labels[j]}\n]\n")
+                    f.write(f"edge [\nsource {i}\ntarget {j}\n]\n")
 
         f.write("]")
         f.close()
 
 
-def POT(client, data):
+def POT(client, data, max_num_examples=1):
     # Program of thoughts
-    for idx, item in data[:1]:
+    for idx, item in data[: min(len(data), max_num_examples)]:
         prompt = format_QRData_item(BENCHMARK_PATH, item)
         causal_graph, labels = discover.discover(
             os.path.join(BENCHMARK_PATH, "data", item["data_files"][0])
         )
-        build_graph_dot(causal_graph, labels)
+        build_graph_dot(causal_graph, labels, os.path.join(BENCHMARK_PATH, "data"))
         answer = "def solution():\n"
         for chunk in client.generate(
             prompt=prompt,
@@ -279,6 +365,106 @@ def POT(client, data):
         save_result(RESULTS_PATH, result_record)
 
 
+def ReAct(client: LlamaServerClient, data, max_num_examples=1, max_extra_turns=3):
+    # Program of thoughts
+    for idx, item in data[: min(len(data), max_num_examples)]:
+        prompt, answer_start = format_QRData_item_ReAct(BENCHMARK_PATH, item)
+        causal_graph, labels = discover.discover(
+            os.path.join(BENCHMARK_PATH, "data", item["data_files"][0])
+        )
+        build_graph_dot(causal_graph, labels, os.path.join(BENCHMARK_PATH, "data"))
+        answer = answer_start
+        messages = [
+            {"role": "user", "content": prompt},
+            {"role": "assistant", "content": answer_start},
+        ]
+        for chunk in client.generate(
+            prompt=messages,
+            stream=True,
+            log_response=LOG,
+            text_only=True,
+            stop=["```"],
+        ):
+            answer += chunk
+        with open("answer0.txt", "w", encoding="utf-8") as f:
+            f.write(answer)
+
+        lines = answer.splitlines()
+        answer = []
+        for line in lines:
+            if line.strip().startswith("return"):
+                answer.append(line)
+                break
+            if line.strip() == "```python":
+                continue
+            answer.append(line)
+        answer = "\n".join(answer)
+
+        final_answer, stdout, stderr = exec_with_output(
+            answer, os.path.join(BENCHMARK_PATH, "data")
+        )
+
+        for i in range(max_extra_turns):
+            if stderr == "":
+                break
+
+            print(f"Answer: {final_answer}")
+            print(f"STDOUT: {stdout}")
+            print(f"STDERR: {stderr}")
+
+            messages[-1] = {"role": "assistant", "content": answer + "```"}
+            messages.extend(
+                [
+                    {
+                        "role": "user",
+                        "content": f"Output: {final_answer}\nSTDOUT: {stdout}\nSTDERR: {stderr}",
+                    },
+                    {"role": "assistant", "content": answer_start},
+                ]
+            )
+            answer = answer_start
+            for chunk in client.generate(
+                prompt=messages,
+                stream=True,
+                log_response=LOG,
+                text_only=True,
+                stop=["```"],
+            ):
+                answer += chunk
+            with open("answer0.txt", "w", encoding="utf-8") as f:
+                f.write(answer)
+
+            lines = answer.splitlines()
+            answer = []
+            for line in lines:
+                if line.strip().startswith("return"):
+                    answer.append(line)
+                    break
+                if line.strip() == "```python":
+                    continue
+                answer.append(line)
+            answer = "\n".join(answer)
+
+            final_answer, stdout, stderr = exec_with_output(
+                answer, os.path.join(BENCHMARK_PATH, "data")
+            )
+
+        print(f"Final Answer: {final_answer}")
+        print(f"STDOUT: {stdout}")
+        print(f"STDERR: {stderr}")
+
+        correct = is_correct(final_answer, item)
+
+        result_record = {
+            "model": MODEL_NAME,
+            "idx": idx,
+            "answer": item["answer"],
+            "pred": final_answer,
+            "correct": correct,
+        }
+        save_result(RESULTS_PATH, result_record)
+
+
 def test_is_correct():
     data = {
         "answer": "treatment group",
@@ -293,13 +479,6 @@ def test_is_correct():
 
 
 if __name__ == "__main__":
-    USE_BOXED = True
-    discovery.config.LLAMA_CPP_SERVER_BASE_URL = "http://localhost:55551"
-    discovery.config.MAX_PARALLEL_REQUESTS = 1
-    MODEL_NAME = "unsloth/gemma-3-27b-it-UD-Q8_K_XL"
-    BENCHMARK_PATH = "QRData/benchmark"
-    RESULTS_PATH = os.path.join(BENCHMARK_PATH, "results.jsonl")
-    LOG = True
     client = LlamaServerClient(discovery.config.LLAMA_CPP_SERVER_BASE_URL)
 
     with open(os.path.join(BENCHMARK_PATH, "QRData.json"), "r", encoding="utf-8") as f:
@@ -328,4 +507,4 @@ if __name__ == "__main__":
     print(f"Filtered for {len(data):,} causal numerical items")
     print(data[0])
 
-    POT(client, data)
+    ReAct(client, data, 3)
