@@ -1,0 +1,5 @@
+unsloth
+vllm
+trl
+huggingface_hub
+bitsandbytes

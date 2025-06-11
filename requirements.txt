@@ -1,10 +1,5 @@
-unsloth
-vllm
-trl
 pandas
 requests
-huggingface_hub
-bitsandbytes
 causal-learn
 dowhy
 networkx==3.4.2
