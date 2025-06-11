@@ -624,6 +624,6 @@ if __name__ == "__main__":
     print(data[0])
 
     if THINK:
-        ReAct_think(client, data, MAX_EXTRA_TURNS)
+        ReAct_think(client, data, max_extra_turns=MAX_EXTRA_TURNS)
     else:
-        ReAct(client, data, MAX_EXTRA_TURNS)
+        ReAct(client, data, max_extra_turns=MAX_EXTRA_TURNS)

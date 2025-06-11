@@ -27,10 +27,7 @@ class LlamaCPPServerClient:
     def _generate(
         self,
         prompt: str | list[dict[str, str]],
-        stream: bool = True,
         stop: List[str] = [],
-        log_response: bool = False,
-        text_only: bool = True,
         **kwargs,
     ):
         """
@@ -38,7 +35,7 @@ class LlamaCPPServerClient:
         This method is adapted from the LlamaServerClient example provided.
 
         :param prompt: The input prompt string.
-        :param stream: Whether to stream the response (currently collects full response if True).
+        :param stream: Whether to stream the response.
         :param stop: A list of stop sequences.
         :param log_response: If stream is true, prints responses as they are streamed back.
         :param text_only: If true, only return text (assumed for this client).
@@ -48,58 +45,26 @@ class LlamaCPPServerClient:
         :return: The generated text as a string.
         """
         payload = {
-            "stream": stream,
+            "stream": False,
             **kwargs,
         }
 
         if isinstance(prompt, str):
             url = f"{self.base_url}/v1/completions"
             payload["prompt"] = prompt
-            is_chat = False
         else:
             url = f"{self.base_url}/v1/chat/completions"
             payload["messages"] = prompt
-            is_chat = True
         if stop:
             payload["stop"] = stop
 
-        response = requests.post(url, json=payload, stream=stream)
+        response = requests.post(url, json=payload, stream=False)
         response.raise_for_status()
 
-        if stream:
-            # For inquire_LLMs, we need a single string output.
-            # Collect streamed content and return it as a complete string.
-            full_response = ""
-            for line in response.iter_lines(decode_unicode=True):
-                if line:
-                    if line == "data: [DONE]":
-                        break
-                    try:
-                        line_data = json.loads(line[5:])  # Strip "data: " prefix
-                        if text_only:
-                            if is_chat:
-                                if "content" not in line_data["choices"][0]["delta"]:
-                                    continue
-                                content = line_data["choices"][0]["delta"]["content"]
-                                if content is None:
-                                    continue
-                            else:
-                                content = line_data["choices"][0]["text"]
-                        else:
-                            content = (
-                                line_data  # Handle non-text_only structure if needed
-                            )
-                        if log_response:
-                            print(content, end="", flush=True)
-                        full_response += content
-                    except json.JSONDecodeError as e:
-                        print(f"JSON decode error: {e} - Line: {line}")
-                        continue
-            with open("full_response.txt", "a", encoding="utf-8") as f:
-                f.write("\n" * 20 + full_response)
-            return full_response
-        else:
-            return response.json()["choices"][0]["text"]
+        full_response = response.json()["choices"][0]["message"]["content"]
+        with open("full_response.txt", "a", encoding="utf-8") as f:
+            f.write("\n" * 20 + full_response)
+        return full_response
 
     def inquire_LLMs(self, prompt: str, system_prompt: str):
         """
