@@ -214,8 +214,11 @@ class ConstrainNormalAgent(ConstrainAgent):
                 indices,
                 desc="Generating constraint matrix",
             )
-        ):
-            self.constrain_matrix[i, j] = final[idx]
+        ):  
+            if final[idx] == -1:
+                self.constrain_matrix[j, i] = 1
+            else:
+                self.constrain_matrix[i, j] = final[idx]
         return self.constrain_matrix
 
     def run(self, use_cache: bool = True, cache_path=None) -> np.ndarray:

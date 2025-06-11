@@ -296,11 +296,13 @@ class ConstrainLLM(LLMs):
             f"Here is the explanation from an expert "
             f"regarding the causal relationship between {causal_entity} and {result_entity}:\n"
             f"{self.domain_knowledge_dict[(causal_entity, result_entity)]}"
-            f"Considering the information above, if {causal_entity} is modified, will it have a direct impact on {result_entity}?\n"
-            f"Please answer this question with <Yes> or <No>.\n"
-            f"No answers except these two responses are needed.\n"
+            f"Considering the information above, if {causal_entity} is modified, will it have a direct impact on {result_entity} or if {result_entity} is modified, will it have a direct impact on {causal_entity}?\n"
+            f"If {causal_entity} causes {result_entity}, answer this question with <1>\n"
+            f"If {result_entity} causes {causal_entity}, answer this question with <-1>\n"
+            f"If there is no causal relationship, answer this question with <0>\n"
+            f"No answers except these responses are needed.\n"
             f"Your response should be in the following format:\n"
-            f"<Yes> or <No>\n"
+            f"<-1> or <0> or <1>\n"
             f"Please provide your response in the format specified above.\n"
             f"Your response:\n"
         )
@@ -318,11 +320,11 @@ class ConstrainLLM(LLMs):
         """
         final = []
         for answer in answers:
-            if "Yes" or "yes" in answer:
+            if "<1>" in answer:
                 final.append(1)
-            elif "No" or "no" in answer:
+            elif "<0>" in answer:
                 final.append(0)
-            else:
+            elif "<-1>":
                 final.append(-1)
 
         return final
