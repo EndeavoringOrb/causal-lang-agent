@@ -13,24 +13,28 @@ causal_discovery_algorithm = "pc"
 
 
 def load_data_from_csv(filename) -> tuple[np.ndarray, list[str]]:
-    """Load the data from the specified dataset.
+    """Load the data from the specified CSV file and encode categorical features.
 
     Args:
-        name: The name of the dataset. Must be one of 'Auto_MPG', 'DWD_climate', or 'Sachs'.
-
-    Raises:
-        ValueError: If the provided dataset name is not in the list of available options.
+        filename: Path to the CSV file.
 
     Returns:
-        tuple: A tuple containing three elements:
-            - np.ndarray: The matrix of values from the dataset.
-            - np.ndarray: The ground truth causal relationship matrix for the dataset.
+        tuple:
+            - np.ndarray: Scaled numeric values from the dataset (with categorical columns encoded).
             - list[str]: The feature labels for the dataset.
     """
     data = pd.read_csv(filename)
+
+    # Encode string columns to numbers
+    for col in data.select_dtypes(include=['object']).columns:
+        unique_vals = sorted(data[col].unique())
+        mapping = {val: idx for idx, val in enumerate(unique_vals)}
+        data[col] = data[col].map(mapping)
+
     scaler = StandardScaler()
     values = scaler.fit_transform(data)
     labels = list(data.columns)
+
     return values, labels
 
 

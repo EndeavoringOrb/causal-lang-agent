@@ -248,7 +248,7 @@ class DomainKnowledgeLLM(LLMs):
         # Combine complete prompt
         self.prompt = (
             self.dataset_prompt
-            + self.graph_prompt
+            # + self.graph_prompt
             + info_prompt
             + final_prompt_template
         )
@@ -304,7 +304,6 @@ class ConstrainLLM(LLMs):
             f"Your response should be in the following format:\n"
             f"<-1> or <0> or <1>\n"
             f"Please provide your response in the format specified above.\n"
-            f"Your response:\n"
         )
         self.system_prompt = "You are a helpful assistant for causal inference."
         return self.prompt, self.system_prompt
@@ -320,11 +319,12 @@ class ConstrainLLM(LLMs):
         """
         final = []
         for answer in answers:
-            if "<1>" in answer:
+            answer = answer.strip().strip("<>")
+            if answer == "1":
                 final.append(1)
-            elif "<0>" in answer:
-                final.append(0)
-            elif "<-1>":
+            elif answer == "-1":
                 final.append(-1)
+            else:
+                final.append(0)
 
         return final
