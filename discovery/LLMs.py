@@ -314,7 +314,9 @@ class ConstrainLLM(LLMs):
         """
         final = []
         for answer in answers:
-            answer = answer.strip().strip("<>")
+            answer = answer[:-3].strip().strip("<>")
+            print("ANSWER FOR CC AGENT:")
+            print(answer)
             if answer == "0":
                 final.append(0)
             elif answer == "1":

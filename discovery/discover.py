@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
-causal_discovery_algorithm = "pc"
-# causal_discovery_algorithm = "Exact-Search"
+#causal_discovery_algorithm = "pc"
+causal_discovery_algorithm = "Exact-Search"
 # causal_discovery_algorithm = "DirectLiNGAM"
 
 
