@@ -60,7 +60,7 @@ def matrix2backgroundknowledge(
         for j in range(node_num):
             if i == j:
                 continue
-            if matrix[i, j] == 0:
+            if matrix[i, j] == 2:
                 bk.add_forbidden_by_pattern(labels[i], labels[j])
             elif matrix[i, j] == 1:
                 bk.add_required_by_pattern(labels[i], labels[j])
@@ -89,9 +89,9 @@ def causal_discovery(
         adjacency_matrix = cg2matrix(cg)
     elif method == "Exact-Search":
         if constraint_matrix is not None:
-            # Convert -1 to 0 in constraint matrix
+            # Convert anything that is not 1 to 0 in constraint matrix
             super_graph = constraint_matrix.copy()
-            super_graph[super_graph == -1] = 0
+            super_graph[super_graph != 1] = 0
             adjacency_matrix, _ = bic_exact_search(
                 data,
                 super_graph=super_graph,
@@ -108,6 +108,12 @@ def causal_discovery(
             # Convert bidirectional or no-edge constraints to undirected edges (-1)
             for i in range(len(constraint_matrix)):
                 for j in range(i + 1, len(constraint_matrix)):
+                    # Convert no-edge to undirected
+                    if constraint_matrix[i, j] == 2:
+                        constraint_matrix[i, j] = -1
+                        constraint_matrix[j, i] = -1
+
+                    # Convert bidirectional to undirected
                     if (
                         constraint_matrix[i, j] == constraint_matrix[j, i]
                         and constraint_matrix[i, j] == 1

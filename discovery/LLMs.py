@@ -297,12 +297,13 @@ class ConstrainLLM(LLMs):
             f"regarding the causal relationship between {causal_entity} and {result_entity}:\n"
             f"{self.domain_knowledge_dict[(causal_entity, result_entity)]}"
             f"Considering the information above, if {causal_entity} is modified, will it have a direct impact on {result_entity} or if {result_entity} is modified, will it have a direct impact on {causal_entity}?\n"
-            f"If {causal_entity} causes {result_entity}, answer this question with <1>\n"
-            f"If {result_entity} causes {causal_entity}, answer this question with <-1>\n"
-            f"If there is no causal relationship, answer this question with <0>\n"
+            f"If {causal_entity} causes {result_entity}, answer this question with <0>\n"
+            f"If {result_entity} causes {causal_entity}, answer this question with <1>\n"
+            f"If there is NO causal relationship, answer this question with <2>\n"
+            f"If you are unsure, answer this question with <3>\n"
             f"No answers except these responses are needed.\n"
             f"Your response should be in the following format:\n"
-            f"<-1> or <0> or <1>\n"
+            f"<0> or <1> or <2> or <3>\n"
             f"Please provide your response in the format specified above.\n"
         )
         self.system_prompt = "You are a helpful assistant for causal inference."
@@ -310,21 +311,17 @@ class ConstrainLLM(LLMs):
 
     def downstream_processing(self, answers) -> List[bool]:
         """Processes LLM's response for background knowledge verification.
-
-        Returns:
-            1 if direct causal relationship exists, 0 otherwise.
-
-        Raises:
-            ValueError: If LLM response is invalid or missing.
         """
         final = []
         for answer in answers:
             answer = answer.strip().strip("<>")
-            if answer == "1":
-                final.append(1)
-            elif answer == "-1":
-                final.append(-1)
-            else:
+            if answer == "0":
                 final.append(0)
+            elif answer == "1":
+                final.append(1)
+            elif answer == "2":
+                final.append(2)
+            else:
+                final.append(3)
 
         return final
