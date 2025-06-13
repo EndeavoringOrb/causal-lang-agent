@@ -195,7 +195,7 @@ class ConstrainNormalAgent(ConstrainAgent):
             client,
             self.domain_knowledge_dict,
         )
-        self.constrain_matrix = np.full((self.node_num, self.node_num), -1)
+        self.constrain_matrix = -np.eye(self.node_num, self.node_num)
 
         prompts = []
         indices = self.get_indices()
@@ -214,11 +214,9 @@ class ConstrainNormalAgent(ConstrainAgent):
                 indices,
                 desc="Generating constraint matrix",
             )
-        ):  
-            if final[idx] == -1:
-                self.constrain_matrix[j, i] = 1
-            else:
-                self.constrain_matrix[i, j] = final[idx]
+        ):
+            self.constrain_matrix[i, j] = final[idx]
+            self.constrain_matrix[j, i] = -final[idx]
         return self.constrain_matrix
 
     def run(self, use_cache: bool = True, cache_path=None) -> np.ndarray:

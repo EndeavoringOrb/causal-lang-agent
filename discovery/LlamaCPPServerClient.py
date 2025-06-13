@@ -62,7 +62,7 @@ class LlamaCPPServerClient:
         response.raise_for_status()
 
         full_response = response.json()["choices"][0]["message"]["content"]
-        with open("full_response.txt", "a", encoding="utf-8") as f:
+        with open(f"full_response.txt", "a", encoding="utf-8") as f:
             f.write("\n" * 20 + full_response)
         return full_response
 
