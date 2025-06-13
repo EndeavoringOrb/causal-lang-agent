@@ -1,4 +1,5 @@
 from typing import List, Tuple
+import re
 
 import numpy as np
 
@@ -317,12 +318,9 @@ class ConstrainLLM(LLMs):
             answer = answer[:-3].strip().strip("<>")
             print("ANSWER FOR CC AGENT:")
             print(answer)
-            if answer == "0":
-                final.append(0)
-            elif answer == "1":
-                final.append(1)
-            elif answer == "2":
-                final.append(2)
+            match = re.search(r"<([0-3])>(?!.*<[0-3]>)", answer)
+            if match:
+                final.append(match.group(1))
             else:
                 final.append(3)
 
