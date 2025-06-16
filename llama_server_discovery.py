@@ -337,7 +337,8 @@ def POT(client, data, max_num_examples=3):
     for idx, item in data[: min(len(data), max_num_examples)]:
         prompt = format_QRData_item(BENCHMARK_PATH, item)
         causal_graph, labels = discover.discover(
-            os.path.join(BENCHMARK_PATH, "data", item["data_files"][0])
+            os.path.join(BENCHMARK_PATH, "data", item["data_files"][0]),
+            item["data_description"],
         )
         build_graph_dot(causal_graph, labels, os.path.join(BENCHMARK_PATH, "data"))
         answer = "def solution():\n"
@@ -383,7 +384,8 @@ def ReAct(client: LlamaServerClient, data, max_num_examples=1, max_extra_turns=3
     for idx, item in data[: min(len(data), max_num_examples)]:
         prompt, answer_start = format_QRData_item_ReAct(BENCHMARK_PATH, item)
         causal_graph, labels = discover.discover(
-            os.path.join(BENCHMARK_PATH, "data", item["data_files"][0])
+            os.path.join(BENCHMARK_PATH, "data", item["data_files"][0]),
+            item["data_description"],
         )
         build_graph_dot(causal_graph, labels, os.path.join(BENCHMARK_PATH, "data"))
         answer = answer_start
@@ -483,7 +485,7 @@ def ReAct_think(client: LlamaServerClient, data, max_num_examples=3, max_extra_t
         prompt, _ = format_QRData_item_ReAct(BENCHMARK_PATH, item)
         causal_graph, labels = discover.discover(
             os.path.join(BENCHMARK_PATH, "data", item["data_files"][0]),
-            item["data_description"]
+            item["data_description"],
         )
         build_graph_dot(causal_graph, labels, os.path.join(BENCHMARK_PATH, "data"))
         answer = ""
@@ -499,7 +501,8 @@ def ReAct_think(client: LlamaServerClient, data, max_num_examples=3, max_extra_t
             answer += chunk
 
         # Remove thinking from answer
-        full_answer = answer[answer.index("</think>") + 1 :]
+        if answer.find("</think>") != -1:
+            full_answer = answer[answer.find("</think>") + len("</think>") :]
 
         # Extract code from answer
         code_start = full_answer.rindex("```python")
