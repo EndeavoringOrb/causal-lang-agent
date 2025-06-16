@@ -320,7 +320,9 @@ class ConstrainLLM(LLMs):
             print(answer)
             match = re.search(r"<([0-3])>(?!.*<[0-3]>)", answer)
             if match:
-                final.append(match.group(1))
+                print("PARSED DIGIT:")
+                print(match.group(1))
+                final.append(int(match.group(1)))
             else:
                 final.append(3)
 

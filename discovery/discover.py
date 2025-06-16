@@ -47,7 +47,7 @@ def discover(filename, data_desc):
     visualize_graph(
         adjacency_matrix,
         labels,
-        f"./images/{causal_discovery_algorithm}_graph.png",
+        f"./images/{str(filename).split('/')[-1].strip('.csv')}_{causal_discovery_algorithm}_graph.png",
     )
 
     print("Running ConstrainAgent...")
@@ -77,8 +77,9 @@ def discover(filename, data_desc):
     visualize_graph(
         adjacency_matrix_optimized,
         labels,
-        f"./images/{causal_discovery_algorithm}_CCAgent.png",
+        f"./images/{str(filename).split('/')[-1].strip('.csv')}_{causal_discovery_algorithm}_CCAgent.png",
     )
+        
 
     return adjacency_matrix_optimized, labels
 
