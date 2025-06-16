@@ -332,7 +332,7 @@ def build_graph_dot(adj_mat, labels, working_dir):
         f.close()
 
 
-def POT(client, data, max_num_examples=1):
+def POT(client, data, max_num_examples=3):
     # Program of thoughts
     for idx, item in data[: min(len(data), max_num_examples)]:
         prompt = format_QRData_item(BENCHMARK_PATH, item)
@@ -474,7 +474,7 @@ def ReAct(client: LlamaServerClient, data, max_num_examples=1, max_extra_turns=3
         save_result(RESULTS_PATH, result_record)
 
 
-def ReAct_think(client: LlamaServerClient, data, max_num_examples=1, max_extra_turns=3):
+def ReAct_think(client: LlamaServerClient, data, max_num_examples=3, max_extra_turns=3):
     # Program of thoughts
     if max_num_examples == -1:
         max_num_examples = len(data)
@@ -482,7 +482,8 @@ def ReAct_think(client: LlamaServerClient, data, max_num_examples=1, max_extra_t
     for idx, item in data[:max_num_examples]:
         prompt, _ = format_QRData_item_ReAct(BENCHMARK_PATH, item)
         causal_graph, labels = discover.discover(
-            os.path.join(BENCHMARK_PATH, "data", item["data_files"][0])
+            os.path.join(BENCHMARK_PATH, "data", item["data_files"][0]),
+            item["data_description"]
         )
         build_graph_dot(causal_graph, labels, os.path.join(BENCHMARK_PATH, "data"))
         answer = ""

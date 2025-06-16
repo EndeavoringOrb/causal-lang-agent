@@ -38,7 +38,7 @@ def load_data_from_csv(filename) -> tuple[np.ndarray, list[str]]:
     return values, labels
 
 
-def discover(filename):
+def discover(filename, data_desc):
     print(f"Loading dataset: {filename}...")
     data, labels = load_data_from_csv(filename)
 
@@ -55,6 +55,7 @@ def discover(filename):
         labels,
         graph_matrix=adjacency_matrix,
         causal_discovery_algorithm=causal_discovery_algorithm,
+        dataset_information=data_desc
     )
 
     constraint_matrix = constrain_agent.run(
