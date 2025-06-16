@@ -4,3 +4,6 @@ __pycache__
 old
 QRData
 matmcd
+graph.dot
+tmp.json
+full_response.txt

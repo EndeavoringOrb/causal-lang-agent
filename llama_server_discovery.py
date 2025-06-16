@@ -7,17 +7,30 @@ import traceback
 import contextlib
 import pandas as pd
 from typing import List
+import argparse
 
 import discovery.config
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--model",
+    type=str,
+    default="Unknown",
+    help="Path to the model used in llama-server",
+)
+args = parser.parse_args()
+
+MODEL_NAME = args.model.split("/")[-1].strip("gguf")
 
 USE_BOXED = True
 discovery.config.LLAMA_CPP_SERVER_BASE_URL = "http://localhost:55551"
 discovery.config.MAX_PARALLEL_REQUESTS = 1
-MODEL_NAME = "unsloth/gemma-3-27b-it-UD-Q8_K_XL"
+# MODEL_NAME = "unsloth/gemma-3-27b-it-UD-Q8_K_XL"
 BENCHMARK_PATH = "QRData/benchmark"
 RESULTS_PATH = os.path.join(BENCHMARK_PATH, "results.jsonl")
 LOG = True
 THINK = True
+MAX_NUM_EXAMPLES = -1
 MAX_EXTRA_TURNS = 3
 import discovery.discover as discover
 
@@ -463,7 +476,10 @@ def ReAct(client: LlamaServerClient, data, max_num_examples=1, max_extra_turns=3
 
 def ReAct_think(client: LlamaServerClient, data, max_num_examples=1, max_extra_turns=3):
     # Program of thoughts
-    for idx, item in data[: min(len(data), max_num_examples)]:
+    if max_num_examples == -1:
+        max_num_examples = len(data)
+    max_num_examples = min(len(data), max_num_examples)
+    for idx, item in data[:max_num_examples]:
         prompt, _ = format_QRData_item_ReAct(BENCHMARK_PATH, item)
         causal_graph, labels = discover.discover(
             os.path.join(BENCHMARK_PATH, "data", item["data_files"][0])
@@ -624,6 +640,6 @@ if __name__ == "__main__":
     print(data[0])
 
     if THINK:
-        ReAct_think(client, data, max_extra_turns=MAX_EXTRA_TURNS)
+        ReAct_think(client, data, MAX_NUM_EXAMPLES, max_extra_turns=MAX_EXTRA_TURNS)
     else:
-        ReAct(client, data, max_extra_turns=MAX_EXTRA_TURNS)
+        ReAct(client, data, MAX_NUM_EXAMPLES, max_extra_turns=MAX_EXTRA_TURNS)
