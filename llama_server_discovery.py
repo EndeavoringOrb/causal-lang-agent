@@ -35,6 +35,7 @@ LOG = True
 THINK = True
 MAX_NUM_EXAMPLES = -1
 MAX_EXTRA_TURNS = 3
+LLM_ONLY_DISCOVERY = True
 import discovery.discover as discover
 
 
@@ -389,6 +390,7 @@ def ReAct(client: LlamaServerClient, data, max_num_examples=1, max_extra_turns=3
         causal_graph, labels = discover.discover(
             os.path.join(BENCHMARK_PATH, "data", item["data_files"][0]),
             item["data_description"],
+            LLM_ONLY_DISCOVERY,
         )
         build_graph_dot(causal_graph, labels, os.path.join(BENCHMARK_PATH, "data"))
         answer = answer_start
@@ -479,7 +481,7 @@ def ReAct(client: LlamaServerClient, data, max_num_examples=1, max_extra_turns=3
         save_result(RESULTS_PATH, result_record)
 
 
-def ReAct_think(client: LlamaServerClient, data, max_num_examples=3, max_extra_turns=3):
+def ReAct_think(client: LlamaServerClient, data, max_num_examples=64, max_extra_turns=3, graph_only=False):
     # Program of thoughts
     if max_num_examples == -1:
         max_num_examples = len(data)
@@ -489,8 +491,11 @@ def ReAct_think(client: LlamaServerClient, data, max_num_examples=3, max_extra_t
         causal_graph, labels = discover.discover(
             os.path.join(BENCHMARK_PATH, "data", item["data_files"][0]),
             item["data_description"],
+            LLM_ONLY_DISCOVERY,
         )
         build_graph_dot(causal_graph, labels, os.path.join(BENCHMARK_PATH, "data"))
+        if graph_only:
+            continue
         answer = ""
         messages = [
             {"role": "user", "content": prompt},
@@ -647,6 +652,6 @@ if __name__ == "__main__":
     print(data[0])
 
     if THINK:
-        ReAct_think(client, data, MAX_NUM_EXAMPLES, max_extra_turns=MAX_EXTRA_TURNS)
+        ReAct_think(client, data, MAX_NUM_EXAMPLES, max_extra_turns=MAX_EXTRA_TURNS, graph_only=True)
     else:
         ReAct(client, data, MAX_NUM_EXAMPLES, max_extra_turns=MAX_EXTRA_TURNS)

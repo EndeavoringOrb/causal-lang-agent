@@ -38,7 +38,7 @@ def load_data_from_csv(filename) -> tuple[np.ndarray, list[str]]:
     return values, labels
 
 
-def discover(filename, data_desc):
+def discover(filename, data_desc, llm_only = False):
     print(f"Loading dataset: {filename}...")
     data, labels = load_data_from_csv(filename)
 
@@ -47,7 +47,7 @@ def discover(filename, data_desc):
     visualize_graph(
         adjacency_matrix,
         labels,
-        f"./images/{causal_discovery_algorithm}_graph.png",
+        f"./images/{str(filename).split('/')[-1].strip('.csv')}_{causal_discovery_algorithm}_graph.png",
     )
 
     print("Running ConstrainAgent...")
@@ -77,8 +77,11 @@ def discover(filename, data_desc):
     visualize_graph(
         adjacency_matrix_optimized,
         labels,
-        f"./images/{causal_discovery_algorithm}_CCAgent.png",
+        f"./images/{str(filename).split('/')[-1].strip('.csv')}_{causal_discovery_algorithm}_CCAgent.png",
     )
+    if llm_only: 
+        adjacency_matrix_optimized = constraint_matrix
+        adjacency_matrix_optimized[adjacency_matrix_optimized == 2] = 0
 
     return adjacency_matrix_optimized, labels
 
