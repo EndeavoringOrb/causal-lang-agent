@@ -9,6 +9,9 @@ import pandas as pd
 from typing import List
 import argparse
 
+import econml
+import dowhy
+
 import discovery.config
 
 parser = argparse.ArgumentParser()
@@ -23,7 +26,7 @@ args = parser.parse_args()
 MODEL_NAME = args.model.split("/")[-1].strip("gguf")
 
 USE_BOXED = True
-discovery.config.LLAMA_CPP_SERVER_BASE_URL = "http://localhost:55551"
+discovery.config.LLAMA_CPP_SERVER_BASE_URL = "http://localhost:55552"
 discovery.config.MAX_PARALLEL_REQUESTS = 1
 # MODEL_NAME = "unsloth/gemma-3-27b-it-UD-Q8_K_XL"
 BENCHMARK_PATH = "QRData/benchmark"

@@ -311,17 +311,18 @@ class ConstrainLLM(LLMs):
         return self.prompt, self.system_prompt
 
     def downstream_processing(self, answers) -> List[bool]:
-        """Processes LLM's response for background knowledge verification.
-        """
+        """Processes LLM's response for background knowledge verification."""
         final = []
         for answer in answers:
-            answer = answer[:-3].strip().strip("<>")
             print("ANSWER FOR CC AGENT:")
             print(answer)
-            match = re.search(r"<([0-3])>(?!.*<[0-3]>)", answer)
-            if match:
-                final.append(match.group(1))
+            pattern = r"<[0-3]>"
+            matches = list(re.finditer(pattern, answer))
+            if matches:
+                final.append(int(matches[-1].group().strip("<>")))
             else:
                 final.append(3)
+                print("No match found.")
+            print(f"Parsed answer: {final[-1]}")
 
         return final

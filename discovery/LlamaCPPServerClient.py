@@ -9,14 +9,14 @@ from tqdm import tqdm
 class LlamaCPPServerClient:
     def __init__(
         self,
-        base_url: str = "http://localhost:55551",
+        base_url: str = "http://localhost:55552",
         model: str = "",
         max_parallel_requests: int = 4,
     ) -> None:
         """
         Initialize the LlamaCPPServerClient to interface with a llama.cpp server.
 
-        :param base_url: The base URL of the llama.cpp server API (default is http://localhost:55551).
+        :param base_url: The base URL of the llama.cpp server API (default is http://localhost:55552).
         :param model: A model identifier (optional, kept for consistency with other clients,
                       llama.cpp server typically doesn't use this directly for /v1/completions).
         """

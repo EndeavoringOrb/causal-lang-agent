@@ -6,7 +6,7 @@ import os
 
 # Configuration
 HOST = "localhost"
-PORT = 55551
+PORT = 55552
 HEALTH_ENDPOINT = f"http://{HOST}:{PORT}/health"
 CHECK_INTERVAL = 2  # seconds
 TIMEOUT = 300  # seconds

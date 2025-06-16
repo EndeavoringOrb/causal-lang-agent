@@ -29,10 +29,10 @@ echo "GPU info:"
 nvidia-smi
 
 # Set model path
-# MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/Qwen3-32B-Q5_K_M.gguf"
+MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/Qwen3-32B-Q5_K_M.gguf"
 # MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/gemma-3-27b-it-qat-Q4_0.gguf"
 # MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/gemma-3-27b-it-UD-Q8_K_XL.gguf"
-MODEL_PATH="/home/azbelikoff/.cache/huggingface/hub/models--unsloth--Qwen3-8B-GGUF/snapshots/672575d5a4634e1c6f2a12b5a05e18f5a86f227f/Qwen3-8B-Q5_K_M.gguf"
+# MODEL_PATH="/home/azbelikoff/.cache/huggingface/hub/models--unsloth--Qwen3-8B-GGUF/snapshots/672575d5a4634e1c6f2a12b5a05e18f5a86f227f/Qwen3-8B-Q5_K_M.gguf"
 
 # Function to clean up llama-server
 cleanup() {
@@ -45,7 +45,7 @@ cleanup() {
 trap cleanup EXIT SIGINT SIGTERM
 
 # Start llama-server in the background
-./llama.cpp/llama-server --model "$MODEL_PATH" --host localhost --port 55551 -ngl 999 -c 32768 -np 2 &
+./llama.cpp/llama-server --model "$MODEL_PATH" --host localhost --port 55552 -ngl 999 -c 32768 -np 2 &
 
 LLAMA_SERVER_PID=$!
 

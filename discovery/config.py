@@ -1,3 +1,3 @@
-LLAMA_CPP_SERVER_BASE_URL = "http://localhost:55551"
+LLAMA_CPP_SERVER_BASE_URL = "http://localhost:55552"
 MODEL = "Qwen3-8B-Q4_K_M"
 MAX_PARALLEL_REQUESTS = 2
