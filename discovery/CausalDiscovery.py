@@ -110,8 +110,8 @@ def causal_discovery(
                 for j in range(i + 1, len(constraint_matrix)):
                     # Convert no-edge to undirected
                     if constraint_matrix[i, j] == 2:
-                        constraint_matrix[i, j] = -1
-                        constraint_matrix[j, i] = -1
+                        constraint_matrix[i, j] = 0
+                        constraint_matrix[j, i] = 0
 
                     # Convert bidirectional to undirected
                     if (
