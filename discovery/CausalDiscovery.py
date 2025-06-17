@@ -62,8 +62,10 @@ def matrix2backgroundknowledge(
                 continue
             if matrix[i, j] == 2:
                 bk.add_forbidden_by_pattern(labels[i], labels[j])
-            elif matrix[i, j] == 1:
+            elif matrix[i, j] == 0:
                 bk.add_required_by_pattern(labels[i], labels[j])
+            elif matrix[i, j] == 1:
+                bk.add_required_by_pattern(labels[j], labels[i])
     return bk
 
 
@@ -91,6 +93,20 @@ def causal_discovery(
         if constraint_matrix is not None:
             # Convert anything that is not 1 to 0 in constraint matrix
             super_graph = constraint_matrix.copy()
+            for i in range(len(super_graph)):
+                for j in range(i, len(super_graph)):
+                    #0 = i->j
+                    if super_graph[i, j] == 0:
+                        super_graph[i, j] = 1
+                    #1 = j->i
+                    elif super_graph[i, j] == 1:
+                        super_graph[i, j] = 0
+                        super_graph[j, i] = 1
+                    #2 = no edge
+                    else:
+                        super_graph[i, j] = 0
+                        super_graph[j, i] = 0
+                    
             super_graph[super_graph != 1] = 0
             adjacency_matrix, _ = bic_exact_search(
                 data,
@@ -107,19 +123,23 @@ def causal_discovery(
         if constraint_matrix is not None:
             # Convert bidirectional or no-edge constraints to undirected edges (-1)
             for i in range(len(constraint_matrix)):
-                for j in range(i + 1, len(constraint_matrix)):
-                    # Convert no-edge to undirected
-                    if constraint_matrix[i, j] == 2:
+                for j in range(i, len(constraint_matrix)):
+                    #0 = i->j
+                    if constraint_matrix[i, j] == 0:
+                        constraint_matrix[i, j] = 1
+                    #1 = j->i
+                    elif constraint_matrix[i, j] == 1:
+                        constraint_matrix[i, j] = 0
+                        constraint_matrix[j, i] = 1
+                    #2 = no edge
+                    elif constraint_matrix[i, j] == 2:
                         constraint_matrix[i, j] = 0
                         constraint_matrix[j, i] = 0
-
-                    # Convert bidirectional to undirected
-                    if (
-                        constraint_matrix[i, j] == constraint_matrix[j, i]
-                        and constraint_matrix[i, j] == 1
-                    ):
+                    # 3 = dk
+                    elif constraint_matrix[i, j] == 3:
                         constraint_matrix[i, j] = -1
                         constraint_matrix[j, i] = -1
+                    
             model = lingam.DirectLiNGAM(
                 prior_knowledge=constraint_matrix,
                 apply_prior_knowledge_softly=True,
