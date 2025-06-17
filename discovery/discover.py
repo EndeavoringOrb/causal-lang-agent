@@ -27,8 +27,8 @@ def load_data_from_csv(filename) -> tuple[np.ndarray, list[str]]:
     data = data.dropna()
 
     # Encode string columns to numbers
-    for col in data.select_dtypes(include=["object"]).columns:
-        unique_vals = sorted(data[col].unique())
+    for col in data.select_dtypes(include=["bool", "string"]).columns:
+        unique_vals = data[col].unique()
         mapping = {val: idx for idx, val in enumerate(unique_vals)}
         data[col] = data[col].map(mapping)
 
