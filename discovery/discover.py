@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
-#causal_discovery_algorithm = "pc"
-causal_discovery_algorithm = "Exact-Search"
+causal_discovery_algorithm = "pc"
+# causal_discovery_algorithm = "Exact-Search"
 # causal_discovery_algorithm = "DirectLiNGAM"
 
 
@@ -24,9 +24,10 @@ def load_data_from_csv(filename) -> tuple[np.ndarray, list[str]]:
             - list[str]: The feature labels for the dataset.
     """
     data = pd.read_csv(filename)
+    data = data.dropna()
 
     # Encode string columns to numbers
-    for col in data.select_dtypes(include=['object']).columns:
+    for col in data.select_dtypes(include=["object"]).columns:
         unique_vals = sorted(data[col].unique())
         mapping = {val: idx for idx, val in enumerate(unique_vals)}
         data[col] = data[col].map(mapping)
@@ -38,7 +39,7 @@ def load_data_from_csv(filename) -> tuple[np.ndarray, list[str]]:
     return values, labels
 
 
-def discover(filename, data_desc, llm_only = False):
+def discover(filename, data_desc, llm_only=False):
     print(f"Loading dataset: {filename}...")
     data, labels = load_data_from_csv(filename)
 
@@ -55,7 +56,7 @@ def discover(filename, data_desc, llm_only = False):
         labels,
         graph_matrix=adjacency_matrix,
         causal_discovery_algorithm=causal_discovery_algorithm,
-        dataset_information=data_desc
+        dataset_information=data_desc,
     )
 
     constraint_matrix = constrain_agent.run(
@@ -79,7 +80,7 @@ def discover(filename, data_desc, llm_only = False):
         labels,
         f"./images/{str(filename).split('/')[-1].strip('.csv')}_{causal_discovery_algorithm}_CCAgent.png",
     )
-    if llm_only: 
+    if llm_only:
         adjacency_matrix_optimized = constraint_matrix
         adjacency_matrix_optimized[adjacency_matrix_optimized == 2] = 0
 
