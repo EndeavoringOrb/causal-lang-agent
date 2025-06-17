@@ -32,6 +32,7 @@ LOG = True
 THINK = True
 MAX_NUM_EXAMPLES = 10000
 MAX_EXTRA_TURNS = 3
+MAX_TOKENS = 8000
 LLM_ONLY_DISCOVERY = False
 import discovery.discover as discover
 
@@ -291,42 +292,52 @@ def POT(client, data, max_num_examples=3):
     # Program of thoughts
     for idx, item in data[: min(len(data), max_num_examples)]:
         prompt = format_QRData_item(BENCHMARK_PATH, item)
-        
-        answer = "def solution():\n"
-        for chunk in client.generate(
-            prompt=prompt,
-            stream=True,
-            log_response=LOG,
-            text_only=True,
-            stop=["```"],
-        ):
-            answer += chunk
+        try:
+            answer = "def solution():\n"
+            for chunk in client.generate(
+                prompt=prompt,
+                stream=True,
+                log_response=LOG,
+                text_only=True,
+                stop=["```"],
+                max_tokens=MAX_TOKENS,
+                
+            ):
+                answer += chunk
 
-        lines = answer.splitlines()
-        answer = []
-        for line in lines:
-            if line.strip().startswith("return"):
+            lines = answer.splitlines()
+            answer = []
+            for line in lines:
+                if line.strip().startswith("return"):
+                    answer.append(line)
+                    break
                 answer.append(line)
-                break
-            answer.append(line)
-        answer = "\n".join(answer)
+            answer = "\n".join(answer)
 
-        final_answer, stdout, stderr = exec_with_output(
-            answer, os.path.join(BENCHMARK_PATH, "data")
-        )
-        print(f"Final Answer: {final_answer}")
-        print(f"STDOUT: {stdout}")
-        print(f"STDERR: {stderr}")
+            final_answer, stdout, stderr = exec_with_output(
+                answer, os.path.join(BENCHMARK_PATH, "data")
+            )
+            print(f"Final Answer: {final_answer}")
+            print(f"STDOUT: {stdout}")
+            print(f"STDERR: {stderr}")
 
-        correct = is_correct(final_answer, item)
+            correct = is_correct(final_answer, item)
 
-        result_record = {
-            "model": MODEL_NAME,
-            "idx": idx,
-            "answer": item["answer"],
-            "pred": final_answer,
-            "correct": correct,
-        }
+            result_record = {
+                "model": MODEL_NAME,
+                "idx": idx,
+                "answer": item["answer"],
+                "pred": final_answer,
+                "correct": correct,
+            }
+        except Exception:
+            result_record = {
+                "model": MODEL_NAME,
+                "idx": idx,
+                "answer": item["answer"],
+                "pred": "err",
+                "correct": False,
+            }
         save_result(RESULTS_PATH, result_record)
 
 
@@ -363,12 +374,6 @@ if __name__ == "__main__":
         df = pd.read_csv(csv_path)
         return len(df.columns)
 
-    data = sorted(
-        data,
-        key=lambda item: count_columns(
-            os.path.join(BENCHMARK_PATH, "data", item[1]["data_files"][0])
-        ),
-    )
     print(f"Filtered for {len(data):,} causal or numerical items")
     print(data[0])
 
