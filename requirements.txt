@@ -4,4 +4,4 @@ causal-learn
 dowhy
 networkx==3.4.2
 tqdm
-econml
+econml==0.15.1
