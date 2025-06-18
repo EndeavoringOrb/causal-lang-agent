@@ -8,7 +8,10 @@ import contextlib
 import pandas as pd
 from typing import List
 import argparse
-import econml
+try:
+    import econml
+except:
+    pass
 import dowhy
 import discovery.config
 
@@ -506,66 +509,32 @@ def ReAct_think(
         build_graph_dot(causal_graph, labels, os.path.join(BENCHMARK_PATH, "data"))
         if graph_only:
             continue
-        answer = ""
+        
         messages = [
             {"role": "user", "content": prompt},
         ]
-        for chunk in client.generate(
-            prompt=messages,
-            stream=True,
-            log_response=LOG,
-            text_only=True,
-        ):
-            answer += chunk
+        output, stdout, stderr, full_answer, log_ans = None, '', '', '', prompt + "\n\n"
+        for round in range(max_extra_turns+1):
+            if round > 0:
+                if output:
+                    break
+                print(f"Answer: {output}")
+                print(f"STDOUT: {stdout}")
+                print(f"STDERR: {stderr}")
+                log_ans += f"Answer: {output}\nSTDOUT: {stdout}\nSTDERR: {stderr}\n\n"
 
-        # Remove thinking from answer
-        if answer.find("</think>") != -1:
-            full_answer = answer[answer.find("</think>") + len("</think>") :]
-
-        # Extract code from answer
-        code_start = full_answer.rindex("```python")
-        code_end = full_answer.rindex("```")
-        lines = full_answer[code_start + len("```python") : code_end].splitlines()
-        answer = []
-        for line in lines:
-            if line.strip().startswith("return"):
-                answer.append(line)
-                break
-            if line.strip() == "```python":
-                continue
-            answer.append(line)
-        answer = "\n".join(answer)
-
-        full_answer = (
-            full_answer[:code_start]
-            + "```python"
-            + answer
-            + "```"
-            + full_answer[code_end + 1 :]
-        )
-
-        output, stdout, stderr = exec_with_output(
-            answer, os.path.join(BENCHMARK_PATH, "data")
-        )
-
-        for _ in range(max_extra_turns):
-            if output:
-                break
-
-            print(f"Answer: {output}")
-            print(f"STDOUT: {stdout}")
-            print(f"STDERR: {stderr}")
-
-            messages.extend(
-                [
-                    {"role": "assistant", "content": full_answer},
-                    {
-                        "role": "user",
-                        "content": f"Output: {output}\nSTDOUT: {stdout}\nSTDERR: {stderr}",
-                    },
-                ]
-            )
+                messages.extend(
+                    [
+                        {"role": "assistant", "content": full_answer},
+                        {
+                            "role": "user",
+                            "content": f"Output: {output}\nSTDOUT: {stdout}\nSTDERR: {stderr}",
+                        },
+                    ]
+                )
+            
             answer = ""
+
             for chunk in client.generate(
                 prompt=messages,
                 stream=True,
@@ -573,39 +542,44 @@ def ReAct_think(
                 text_only=True,
             ):
                 answer += chunk
-
+            log_ans += answer + '\n\n'
             # Remove thinking from answer
-            full_answer = answer[answer.index("</think>") + 1 :]
+            if answer.find("</think>") != -1:
+                full_answer = answer[answer.find("</think>") + len("</think>") :]
 
             # Extract code from answer
-            code_start = full_answer.rindex("```python")
-            code_end = full_answer.rindex("```")
-            lines = full_answer[code_start:code_end].splitlines()
-            answer = []
-            for line in lines:
-                if line.strip().startswith("return"):
+            if (pidx := answer.find('```python')) != -1 and answer[pidx + len('```python'):].find('```') != -1:
+                code_start = full_answer.rindex("```python")
+                code_end = full_answer.rindex("```")
+                lines = full_answer[code_start + len("```python") : code_end].splitlines()
+                answer = []
+                for line in lines:
+                    if line.strip().startswith("return"):
+                        answer.append(line)
+                        break
+                    if line.strip() == "```python":
+                        continue
                     answer.append(line)
-                    break
-                if line.strip() == "```python":
-                    continue
-                answer.append(line)
-            answer = "\n".join(answer)
+                answer = "\n".join(answer)
 
-            full_answer = (
-                full_answer[:code_start]
-                + "```python"
-                + answer
-                + "```"
-                + full_answer[code_end + 1 :]
-            )
+                full_answer = (
+                    full_answer[:code_start]
+                    + "```python"
+                    + answer
+                    + "```"
+                    + full_answer[code_end + 1 :]
+                )
 
-            output, stdout, stderr = exec_with_output(
-                answer, os.path.join(BENCHMARK_PATH, "data")
-            )
+                output, stdout, stderr = exec_with_output(
+                    answer, os.path.join(BENCHMARK_PATH, "data")
+                )
+            else:
+                output = None
 
         print(f"Final Answer: {output}")
         print(f"STDOUT: {stdout}")
         print(f"STDERR: {stderr}")
+        log_ans += f"FINAL Answer: {output}\nSTDOUT: {stdout}\nSTDERR: {stderr}\n\n"
 
         correct = is_correct(output, item)
 
@@ -616,7 +590,10 @@ def ReAct_think(
             "pred": output,
             "correct": correct,
         }
+        log_ans += f"True Answer: {item["answer"]}\n"
         save_result(RESULTS_PATH, result_record)
+        with open(f'results/logs/{MODEL_NAME}_Q{idx}_log.txt', 'w') as log:
+            log.write(log_ans)
 
 
 def test_is_correct():
