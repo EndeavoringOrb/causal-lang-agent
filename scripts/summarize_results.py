@@ -2,10 +2,10 @@ import json
 import os
 from collections import defaultdict
 
-BENCHMARK_PATH = "QRData/QRData/benchmark/"
+BENCHMARK_PATH = "QRData/benchmark/"
 
 
-def summarize_results():
+def summarize_results(results_filepath: str):
     # Load benchmark metadata
     with open(os.path.join(BENCHMARK_PATH, "QRData.json"), "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -22,7 +22,7 @@ def summarize_results():
     )
 
     # Read results.jsonl line by line
-    path = os.path.join("baseline_results.jsonl")
+    path = os.path.join(results_filepath)
     with open(path) as resultfile:
         for line in resultfile:
             result = json.loads(line)
@@ -76,4 +76,4 @@ def summarize_results():
 
 
 if __name__ == "__main__":
-    summarize_results()
+    summarize_results("tmp.jsonl")

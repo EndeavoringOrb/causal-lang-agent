@@ -8,10 +8,8 @@ import contextlib
 import pandas as pd
 from typing import List
 import argparse
-
 import econml
 import dowhy
-
 import discovery.config
 
 parser = argparse.ArgumentParser()
@@ -23,20 +21,26 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-MODEL_NAME = args.model.split("/")[-1].strip("gguf")
+MODEL_NAME = args.model.split("/")[-1].strip(".gguf")
 
 USE_BOXED = True
 discovery.config.LLAMA_CPP_SERVER_BASE_URL = "http://localhost:55552"
-discovery.config.MAX_PARALLEL_REQUESTS = 1
+discovery.config.MAX_PARALLEL_REQUESTS = 4
 # MODEL_NAME = "unsloth/gemma-3-27b-it-UD-Q8_K_XL"
 BENCHMARK_PATH = "QRData/benchmark"
-RESULTS_PATH = os.path.join(BENCHMARK_PATH, "results.jsonl")
 LOG = True
-THINK = True
 MAX_NUM_EXAMPLES = -1
 MAX_EXTRA_TURNS = 3
 LLM_ONLY_DISCOVERY = True
 import discovery.discover as discover
+
+
+os.makedirs("results", exist_ok=True)
+num_results = len(os.listdir("results"))
+RESULTS_PATH = os.path.join("results", f"results_{num_results}.jsonl")
+
+think_keywords = ["qwen3"]
+THINK = any([keyword in MODEL_NAME for keyword in think_keywords])
 
 
 class LlamaServerClient:
@@ -481,7 +485,13 @@ def ReAct(client: LlamaServerClient, data, max_num_examples=1, max_extra_turns=3
         save_result(RESULTS_PATH, result_record)
 
 
-def ReAct_think(client: LlamaServerClient, data, max_num_examples=64, max_extra_turns=3, graph_only=False):
+def ReAct_think(
+    client: LlamaServerClient,
+    data,
+    max_num_examples=64,
+    max_extra_turns=3,
+    graph_only=False,
+):
     # Program of thoughts
     if max_num_examples == -1:
         max_num_examples = len(data)
@@ -539,7 +549,7 @@ def ReAct_think(client: LlamaServerClient, data, max_num_examples=64, max_extra_
         )
 
         for _ in range(max_extra_turns):
-            if stderr == "":
+            if output:
                 break
 
             print(f"Answer: {output}")
@@ -652,6 +662,12 @@ if __name__ == "__main__":
     print(data[0])
 
     if THINK:
-        ReAct_think(client, data, MAX_NUM_EXAMPLES, max_extra_turns=MAX_EXTRA_TURNS, graph_only=True)
+        ReAct_think(
+            client,
+            data,
+            MAX_NUM_EXAMPLES,
+            max_extra_turns=MAX_EXTRA_TURNS,
+            graph_only=False,
+        )
     else:
         ReAct(client, data, MAX_NUM_EXAMPLES, max_extra_turns=MAX_EXTRA_TURNS)

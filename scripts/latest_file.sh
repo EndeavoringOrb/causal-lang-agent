@@ -1,10 +1,10 @@
 latest_file() {
-    latest=$(ls -v slurm_logs/*.out | tail -n 1)
+    latest=$(ls -v slurm_logs/*.out 2>/dev/null | tail -n 1)
     if [ -z "$latest" ]; then
         echo "No matching files found."
         return 1
     fi
-    
+
     case "$1" in
         cat)
             cat "$latest"
@@ -15,8 +15,11 @@ latest_file() {
         tail)
             tail -n 10 "$latest"
             ;;
+        nano)
+            nano "$latest"
+            ;;
         *)
-            echo "Usage: latest_file [cat|watch|tail]"
+            echo "Usage: latest_file [cat|watch|tail|nano]"
             return 1
             ;;
     esac
