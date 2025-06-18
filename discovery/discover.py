@@ -27,7 +27,7 @@ def load_data_from_csv(filename) -> tuple[np.ndarray, list[str]]:
     data = data.dropna()
 
     # Encode string columns to numbers
-    for col in data.select_dtypes(include=["bool", "string"]).columns:
+    for col in data.select_dtypes(include=["bool", "string", "object"]).columns:
         unique_vals = data[col].unique()
         mapping = {val: idx for idx, val in enumerate(unique_vals)}
         data[col] = data[col].map(mapping)
@@ -60,7 +60,7 @@ def discover(filename, data_desc, llm_only=False):
     )
 
     constraint_matrix = constrain_agent.run(
-        use_cache=False,
+        use_cache=True,
         cache_path=f"./cache/Domain_knowledge/{filename.strip('.csv')}/{causal_discovery_algorithm}",
     )
     print("The constraint matrix is:")
