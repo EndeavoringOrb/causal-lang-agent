@@ -9,27 +9,40 @@ from causallearn.search.ScoreBased.ExactSearch import bic_exact_search
 from causallearn.utils.cit import fisherz
 from causallearn.utils.GraphUtils import GraphUtils
 import matplotlib.pyplot as plt
+from discovery.discover import load_data_from_csv
+import os
 
 
 d = "hospital_treatment"
-data = pd.read_csv(f"QRData/QRData/benchmark/data/{d}.csv")
+files = os.listdir("QRData/QRData/benchmark/data")
 
-methods = {'fci':fci, 'pc':pc, 'ges':ges, 'bic':bic_exact_search}
+methods = {'fci':fci, 
+           'pc':pc,
+          #  'ges':ges
+            }
 
-labels = list(data.columns)
-data = data.to_numpy()
+for file in files:        
+    print(f"File: {file}")
+    data, labels = load_data_from_csv(f"QRData/QRData/benchmark/data/{file}")
+
+    for label, fn in methods.items():
+        try:
+            res = fn(data)
+
+        except Exception as e:
+            print(f"Exception")
+            print(f"Method: {label}")
+            print(f"Error: {e}")
+            continue
+        print("Success")
+        match label:
+            case 'fci':
+                pdy = GraphUtils.to_pydot(res[0], labels=labels)
+            case 'pc':
+                pdy = GraphUtils.to_pydot(res.G, labels=labels)
+            case 'ges':
+                pdy = GraphUtils.to_pydot(res['G'], labels=labels)
 
 
-for label, fn in methods.items():
-    res = fn(data)
-    match label:
-        case 'fci':
-            pdy = GraphUtils.to_pydot(res[0], labels=labels)
-        case 'pc':
-            pdy = GraphUtils.to_pydot(res.G, labels=labels)
-        case 'ges':
-            pdy = GraphUtils.to_pydot(res['G'], labels=labels)
-
-
-    pdy.write_png(f"graphs/{d}_{label}.png")
+        pdy.write_png(f"graphs/{d}_{label}.png")
 

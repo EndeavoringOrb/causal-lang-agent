@@ -60,7 +60,7 @@ def discover(filename, data_desc, llm_only=False):
     )
 
     constraint_matrix = constrain_agent.run(
-        use_cache=False,
+        use_cache=True,
         cache_path=f"./cache/Domain_knowledge/{filename.strip('.csv')}/{causal_discovery_algorithm}",
     )
     print("The constraint matrix is:")
