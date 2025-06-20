@@ -43,7 +43,8 @@ num_results = len(os.listdir("results"))
 RESULTS_PATH = os.path.join("results", f"results_{num_results}.jsonl")
 
 think_keywords = ["qwen3"]
-THINK = any([keyword in MODEL_NAME for keyword in think_keywords])
+#THINK = any([keyword in MODEL_NAME for keyword in think_keywords])
+THINK = True
 
 
 class LlamaServerClient:
@@ -516,7 +517,7 @@ def ReAct_think(
         output, stdout, stderr, full_answer, log_ans = None, '', '', '', prompt + "\n\n"
         for round in range(max_extra_turns+1):
             if round > 0:
-                if output:
+                if output and output not in [0, '', '0']:
                     break
                 print(f"Answer: {output}")
                 print(f"STDOUT: {stdout}")
@@ -548,7 +549,7 @@ def ReAct_think(
                 full_answer = answer[answer.find("</think>") + len("</think>") :]
 
             # Extract code from answer
-            if (pidx := answer.find('```python')) != -1 and answer[pidx + len('```python'):].find('```') != -1:
+            if (pidx := full_answer.find('```python')) != -1 and full_answer[pidx + len('```python'):].find('```') != -1:
                 code_start = full_answer.rindex("```python")
                 code_end = full_answer.rindex("```")
                 lines = full_answer[code_start + len("```python") : code_end].splitlines()
