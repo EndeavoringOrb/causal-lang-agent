@@ -115,7 +115,7 @@ hospital_treatment:
 Query: What is the average treatment effect (ATE) of the new drug on the amount of days the patient stays in the hospital? Please choose the variables to adjust for, conduct linear regression, and round your answer to the nearest hundredth. If the new drug reduces the amount of days the patient stays in the hospital, the answer should be negative.
 
 Reasoning: This study concerns 4 variables: treatment, days, hospital, severity. Clearly treatment is the treatment. It says the outcome of interest is days hospitalised, so days is the outcome.
-Since the hospitals administer treatments differently, hospital is an instrumental variable. Severity affects the days someone will be hospitalized, and it affects which hospital a patient goes to. Therefore it is a common cause since it influences treatment through hospital.
+Since the hospitals administer treatments differently, and the hospital doesn't affect the effect other than through treatment, hospital is an instrumental variable. Severity affects the days someone will be hospitalized, and it affects which hospital a patient goes to. Therefore it is a common cause since it influences treatment through hospital.
 There are no transformations to make to the data. I need to estimate the average treatment effect using Dowhy CausalModel and backdoor.linear_regression.
 
 Code: 
