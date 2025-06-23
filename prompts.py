@@ -158,7 +158,7 @@ Here is documentation for the CausalModel class:
 ```""".strip()
 
     if example:
-        text += example_trace
+        text += "\n" + example_trace.strip()
 
     text += "\nData Description:\n"
     text += item["data_description"]
