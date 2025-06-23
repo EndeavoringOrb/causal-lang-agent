@@ -53,7 +53,54 @@ def solution():
     answer = model.estimate_effect(identified_estimand, method_name=...)
     return answer.value
 ```
-"""
+""",
+"no_discovery":"""You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the 
+provided data. The description and the question can be found below. Please analyze the first 10 rows of the table and write 
+python code to analyze the whole table. You must use the DoWhy library to build a causal model and perform effect estimation. The returned value of the program should be 
+the answer. Write the graph text in gml format. After the solution function is written, don't write any more code and enter ```. The general format of the code should be
+```python
+def solution():
+    from dowhy import CausalModel
+    import pandas as pd
+
+    data = pd.read_csv(filename)
+    
+    # Example graph
+    graph = \"\"\"graph [
+    directed 1
+    node [
+        id 1
+        label "X"
+    ]
+    node [
+        id 2
+        label "Y"
+    ]
+    node [
+        id 3
+        label "Z"
+    ]
+    edge [
+        source 1
+        target 2
+    ]
+    edge [
+        source 2
+        target 3
+    ]
+]\"\"\"
+
+    model = CausalModel(
+        data = data,
+        treatment = "treatment_col"
+        outcome = "outcome_col"
+        graph = graph
+    )
+    identified_estimand = model.identify_effect()
+    answer = model.estimate_effect(identified_estimand, method_name="...")
+    return answer.value
+```
+""",
 
 }
 
@@ -94,6 +141,7 @@ def solution():
 ```
 
 """
+
 
 
 def format_QRData_item(benchmark_path, item, prompt = "identify_common_causes_effect_modifiers", example=False, rows=10):
