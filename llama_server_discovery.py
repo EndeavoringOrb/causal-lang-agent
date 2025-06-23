@@ -21,17 +21,18 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-MODEL_NAME = args.model.split("/")[-1].strip(".gguf")
+MODEL_NAME = args.model.split("/")[-1]
 
 USE_BOXED = True
 discovery.config.LLAMA_CPP_SERVER_BASE_URL = "http://localhost:55552"
-discovery.config.MAX_PARALLEL_REQUESTS = 4
+discovery.config.MAX_PARALLEL_REQUESTS = 2
 # MODEL_NAME = "unsloth/gemma-3-27b-it-UD-Q8_K_XL"
 BENCHMARK_PATH = "QRData/benchmark"
 LOG = True
 MAX_NUM_EXAMPLES = -1
 MAX_EXTRA_TURNS = 3
 LLM_ONLY_DISCOVERY = True
+DISCOVER_SINGLE_STEP = True
 import discovery.discover as discover
 
 
@@ -340,6 +341,11 @@ def build_graph_dot(adj_mat, labels, working_dir):
         f.close()
 
 
+def save_graph_text(text: str, working_dir):
+    with open(os.path.join(working_dir, "graph.gml"), "w") as f:
+        f.write(text)
+
+
 def POT(client, data, max_num_examples=3):
     # Program of thoughts
     for idx, item in data[: min(len(data), max_num_examples)]:
@@ -387,16 +393,32 @@ def POT(client, data, max_num_examples=3):
         save_result(RESULTS_PATH, result_record)
 
 
-def ReAct(client: LlamaServerClient, data, max_num_examples=1, max_extra_turns=3):
+def ReAct(
+    client: LlamaServerClient,
+    data,
+    max_num_examples=1,
+    max_extra_turns=3,
+    graph_only=False,
+):
     # Program of thoughts
     for idx, item in data[: min(len(data), max_num_examples)]:
         prompt, answer_start = format_QRData_item_ReAct(BENCHMARK_PATH, item)
-        causal_graph, labels = discover.discover(
-            os.path.join(BENCHMARK_PATH, "data", item["data_files"][0]),
-            item["data_description"],
-            LLM_ONLY_DISCOVERY,
-        )
-        build_graph_dot(causal_graph, labels, os.path.join(BENCHMARK_PATH, "data"))
+        if DISCOVER_SINGLE_STEP:
+            gml_graph_text = discover.discover_single_step(
+                os.path.join(BENCHMARK_PATH, "data", item["data_files"][0]),
+                item["data_description"],
+                LLM_ONLY_DISCOVERY,
+            )
+            save_graph_text(gml_graph_text, os.path.join(BENCHMARK_PATH, "data"))
+        else:
+            causal_graph, labels = discover.discover(
+                os.path.join(BENCHMARK_PATH, "data", item["data_files"][0]),
+                item["data_description"],
+                LLM_ONLY_DISCOVERY,
+            )
+            build_graph_dot(causal_graph, labels, os.path.join(BENCHMARK_PATH, "data"))
+        if graph_only:
+            continue
         answer = answer_start
         messages = [
             {"role": "user", "content": prompt},
@@ -498,12 +520,20 @@ def ReAct_think(
     max_num_examples = min(len(data), max_num_examples)
     for idx, item in data[:max_num_examples]:
         prompt, _ = format_QRData_item_ReAct(BENCHMARK_PATH, item)
-        causal_graph, labels = discover.discover(
-            os.path.join(BENCHMARK_PATH, "data", item["data_files"][0]),
-            item["data_description"],
-            LLM_ONLY_DISCOVERY,
-        )
-        build_graph_dot(causal_graph, labels, os.path.join(BENCHMARK_PATH, "data"))
+        if DISCOVER_SINGLE_STEP:
+            gml_graph_text = discover.discover_single_step(
+                os.path.join(BENCHMARK_PATH, "data", item["data_files"][0]),
+                item["data_description"],
+                LLM_ONLY_DISCOVERY,
+            )
+            save_graph_text(gml_graph_text, os.path.join(BENCHMARK_PATH, "data"))
+        else:
+            causal_graph, labels = discover.discover(
+                os.path.join(BENCHMARK_PATH, "data", item["data_files"][0]),
+                item["data_description"],
+                LLM_ONLY_DISCOVERY,
+            )
+            build_graph_dot(causal_graph, labels, os.path.join(BENCHMARK_PATH, "data"))
         if graph_only:
             continue
         answer = ""
