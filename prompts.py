@@ -1,7 +1,8 @@
 import pandas as pd
 import os
 
-prompts = {"identify_common_causes_effect_modifiers":"""
+prompts = {
+    "identify_common_causes_effect_modifiers": """
 You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the 
 provided data. The description and the question can be found below. Please analyze the first 10 rows of the table and write 
 python code to analyze the whole table. You must use the DoWhy library to build a causal model and perform effect estimation. The steps you should take are: 
@@ -31,8 +32,7 @@ def solution():
     return answer.value
 ```
 """,
-
-"original":"""You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the 
+    "original": """You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the 
 provided data. The description and the question can be found below. Please analyze the first 10 rows of the table and write 
 python code to analyze the whole table. You must use the DoWhy library to build a causal model and perform effect estimation. The returned value of the program should be 
 the answer. The path to the causal graph is graph.gml. After the solution function is written, don't write any more code and enter ```. The general format of the code should be
@@ -54,7 +54,7 @@ def solution():
     return answer.value
 ```
 """,
-"no_discovery":"""You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the 
+    "no_discovery": """You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the 
 provided data. The description and the question can be found below. Please analyze the first 10 rows of the table and write 
 python code to analyze the whole table. You must use the DoWhy library to build a causal model and perform effect estimation. The returned value of the program should be 
 the answer. Write the graph text in gml format. After the solution function is written, don't write any more code and enter ```. The general format of the code should be
@@ -101,7 +101,6 @@ def solution():
     return answer.value
 ```
 """,
-
 }
 
 example_trace = """ 
@@ -143,8 +142,13 @@ def solution():
 """
 
 
-
-def format_QRData_item(benchmark_path, item, prompt = "identify_common_causes_effect_modifiers", example=False, rows=10):
+def format_QRData_item(
+    benchmark_path,
+    item,
+    prompt="identify_common_causes_effect_modifiers",
+    example=False,
+    rows=10,
+):
     with open("causal_model_docs.py", "r", encoding="utf-8") as f:
         causal_model_docs = f.read().strip()
     text = f"""{prompts[prompt]}
@@ -152,7 +156,7 @@ Here is documentation for the CausalModel class:
 ```python
 {causal_model_docs}
 ```""".strip()
-    
+
     if example:
         text += example_trace
 
