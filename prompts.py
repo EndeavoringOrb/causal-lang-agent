@@ -10,7 +10,7 @@ python code to analyze the whole table. You must use the DoWhy library to build 
 2. Identify any transformations to the data or additional steps, such as conditioning.
 2. Construct a DoWhy CausalModel to perform effect estimation
 4. Use DoWhy methods to compute the relevant quantity and return it.
-The returned value of the program should be the answer. After the solution function is written, don't write any more code and enter ```. The general format of the code should be
+The returned value of the program should be the answer. After the solution function is written, don't write any more code and enter ```. The solution() function MUST be defined. The general format of the code should be
 ```python
 def solution():
     from dowhy import CausalModel
@@ -24,8 +24,6 @@ def solution():
         outcome = "outcome_col"
         common_causes = ["causes"]
         instruments = ["instruments"]
-
-
     )
     identified_estimand = model.identify_effect()
     answer = model.estimate_effect(identified_estimand, method_name=...)
@@ -173,6 +171,6 @@ Here is documentation for the CausalModel class:
     text += "\nQuestion:\n"
     text += item["question"].strip()
 
-    text += "\nResponse\n```python\ndef solution():\n"
+    answer_start = "```python\ndef solution():\n"
 
-    return text
+    return text, answer_start
