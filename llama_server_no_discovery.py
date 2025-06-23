@@ -16,6 +16,9 @@ LOG = True # If true, LlamaServerClient will print model responses in the termin
 MAX_NUM_EXAMPLES = -1 # Max number of items from QRData to process. -1 means process all items
 MAX_EXTRA_TURNS = 3 # The max number of retries the model gets for writing code
 THINK = True # Set to true if the model you are using outputs <think></think> tags
+PROMPT_OPTIONS = {"prompt":"identify_common_causes_effect_modifiers",
+    "example":False,
+    "rows":10}
 ################################################################
 
 # Make sure results folder exists
@@ -46,7 +49,7 @@ def process(
         max_num_examples = len(data)
     max_num_examples = min(len(data), max_num_examples)
     for idx, item in data[:max_num_examples]:
-        prompt, answer_start = format_QRData_item(BENCHMARK_PATH, item)
+        prompt, answer_start = format_QRData_item(BENCHMARK_PATH, item, **PROMPT_OPTIONS)
         if think:
             answer = ""
             messages = [
