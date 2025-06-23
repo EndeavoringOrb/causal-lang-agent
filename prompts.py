@@ -99,7 +99,7 @@ def solution():
 def format_QRData_item(benchmark_path, item, prompt = "identify_common_causes_effect_modifiers", example=False, rows=10):
     with open("causal_model_docs.py", "r", encoding="utf-8") as f:
         causal_model_docs = f.read().strip()
-    text = f"""{prompt}
+    text = f"""{prompts[prompt]}
 Here is documentation for the CausalModel class:
 ```python
 {causal_model_docs}
