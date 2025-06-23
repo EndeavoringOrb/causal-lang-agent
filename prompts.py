@@ -53,7 +53,54 @@ def solution():
     answer = model.estimate_effect(identified_estimand, method_name=...)
     return answer.value
 ```
-"""
+""",
+"no_discovery":"""You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the 
+provided data. The description and the question can be found below. Please analyze the first 10 rows of the table and write 
+python code to analyze the whole table. You must use the DoWhy library to build a causal model and perform effect estimation. The returned value of the program should be 
+the answer. Write the graph text in gml format. After the solution function is written, don't write any more code and enter ```. The general format of the code should be
+```python
+def solution():
+    from dowhy import CausalModel
+    import pandas as pd
+
+    data = pd.read_csv(filename)
+    
+    # Example graph
+    graph = \"\"\"graph [
+    directed 1
+    node [
+        id 1
+        label "X"
+    ]
+    node [
+        id 2
+        label "Y"
+    ]
+    node [
+        id 3
+        label "Z"
+    ]
+    edge [
+        source 1
+        target 2
+    ]
+    edge [
+        source 2
+        target 3
+    ]
+]\"\"\"
+
+    model = CausalModel(
+        data = data,
+        treatment = "treatment_col"
+        outcome = "outcome_col"
+        graph = graph
+    )
+    identified_estimand = model.identify_effect()
+    answer = model.estimate_effect(identified_estimand, method_name="...")
+    return answer.value
+```
+""",
 
 }
 
@@ -68,7 +115,7 @@ hospital_treatment:
 Query: What is the average treatment effect (ATE) of the new drug on the amount of days the patient stays in the hospital? Please choose the variables to adjust for, conduct linear regression, and round your answer to the nearest hundredth. If the new drug reduces the amount of days the patient stays in the hospital, the answer should be negative.
 
 Reasoning: This study concerns 4 variables: treatment, days, hospital, severity. Clearly treatment is the treatment. It says the outcome of interest is days hospitalised, so days is the outcome.
-Since the hospitals administer treatments differently, hospital is an instrumental variable. Severity affects the days someone will be hospitalized, and it affects which hospital a patient goes to. Therefore it is a common cause since it influences treatment through hospital.
+Since the hospitals administer treatments differently, and the hospital doesn't affect the effect other than through treatment, hospital is an instrumental variable. Severity affects the days someone will be hospitalized, and it affects which hospital a patient goes to. Therefore it is a common cause since it influences treatment through hospital.
 There are no transformations to make to the data. I need to estimate the average treatment effect using Dowhy CausalModel and backdoor.linear_regression.
 
 Code: 
@@ -94,6 +141,7 @@ def solution():
 ```
 
 """
+
 
 
 def format_QRData_item(benchmark_path, item, prompt = "identify_common_causes_effect_modifiers", example=False, rows=10):
