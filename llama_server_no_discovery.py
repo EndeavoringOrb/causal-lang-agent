@@ -76,11 +76,23 @@ def process(
             answer += chunk
 
         log.append({"role": "assistant", "content": answer})
-        answer, code = extract_code(answer)
-
-        output, stdout, stderr = exec_with_output(
-            code, os.path.join(BENCHMARK_PATH, "data")
-        )
+        answer, code, no_code = extract_code(answer)
+        if no_code:
+                messages.extend(
+                    [
+                        {
+                            "role": "user",
+                            "content": "No code parsed in response. Please format code as ```python\n...\n```",
+                        },
+                       
+                    ]
+                )
+                output, stdout, stderr = '', '', ''
+                
+        else:
+            output, stdout, stderr = exec_with_output(
+                code, os.path.join(BENCHMARK_PATH, "data")
+            )
 
         for _ in range(max_extra_turns):
             log.append({"role": "user",
@@ -126,11 +138,23 @@ def process(
             ):
                 answer += chunk
             log.append({"role": "assistant", "content": answer})
-            answer, code = extract_code(answer)
+            answer, code, no_code = extract_code(answer)
 
-            output, stdout, stderr = exec_with_output(
-                code, os.path.join(BENCHMARK_PATH, "data")
-            )
+            if no_code:
+                messages.extend(
+                    [
+                        {
+                            "role": "user",
+                            "content": "No code parsed in response. Please format code as ```python\n...\n```",
+                        },
+                       
+                    ]
+                )
+                output, stdout, stderr = '', '', ''
+            else:
+                output, stdout, stderr = exec_with_output(
+                    code, os.path.join(BENCHMARK_PATH, "data")
+                )
 
         print(f"Final Answer: {output}")
         print(f"STDOUT: {stdout}")

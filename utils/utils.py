@@ -6,7 +6,7 @@ import io
 import re
 
 # for exec
-import econml
+#import econml
 import dowhy
 
 
@@ -110,7 +110,8 @@ def extract_code(answer: str):
     # Remove thinking from answer
     if answer.find("</think>") != -1:
         answer = answer[answer.find("</think>") + len("</think>") :]
-
+    if answer.find("```python") == -1 or answer[len("```python"):].find("```") == -1:
+        return answer, '', True
     code_start = answer.rindex("```python")
     code_end = answer.rindex("```")
     lines = answer[code_start + len("```python") : code_end].splitlines()
@@ -124,4 +125,4 @@ def extract_code(answer: str):
         code.append(line)
     code = "\n".join(code)
 
-    return answer, code
+    return answer, code, False
