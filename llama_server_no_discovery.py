@@ -58,6 +58,7 @@ def process(
         prompt, answer_start = format_QRData_item(
             BENCHMARK_PATH, item, **PROMPT_OPTIONS
         )
+        log = [{"role": "user", "content": prompt}]
         if think:
             answer = ""
             messages = [
@@ -103,13 +104,31 @@ def process(
 
             answer += "```"
 
-        answer, code = extract_code(answer)
+        log.append({"role": "assistant", "content": answer})
+        answer, code, no_code = extract_code(answer)
+        if no_code:
+            messages.extend(
+                [
+                    {
+                        "role": "user",
+                        "content": "No code parsed in response. Please format code as ```python\n...\n```",
+                    },
+                ]
+            )
+            output, stdout, stderr = "", "", ""
 
-        output, stdout, stderr = exec_with_output(
-            code, os.path.join(BENCHMARK_PATH, "data")
-        )
+        else:
+            output, stdout, stderr = exec_with_output(
+                code, os.path.join(BENCHMARK_PATH, "data")
+            )
 
         for _ in range(max_extra_turns):
+            log.append(
+                {
+                    "role": "user",
+                    "content": f"Output: {output}\nSTDOUT: {stdout}\nSTDERR: {stderr}",
+                }
+            )
             if output != "" and stderr == "":
                 break
 
@@ -166,20 +185,20 @@ def process(
                     {"role": "user", "content": prompt},
                     {"role": "assistant", "content": answer_start},
                 ]
-                stop = ["```"]
 
                 for chunk in client.generate(
                     prompt=messages,
                     stream=True,
                     log_response=LOG,
                     text_only=True,
-                    stop=stop,
+                    stop=["```"],
                 ):
                     answer += chunk
 
                 answer += "```"
 
-            answer, code = extract_code(answer)
+            log.append({"role": "assistant", "content": answer})
+            answer, code, no_code = extract_code(answer)
 
             output, stdout, stderr = exec_with_output(
                 code, os.path.join(BENCHMARK_PATH, "data")
@@ -199,6 +218,10 @@ def process(
             "correct": correct,
         }
         save_result(RESULTS_PATH, result_record)
+
+        logpath = f"results/logs/{MODEL_NAME}_Q{idx}_log.jsonl"
+        for r in log:
+            save_result(logpath, r)
 
 
 if __name__ == "__main__":
