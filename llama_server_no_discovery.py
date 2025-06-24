@@ -17,7 +17,7 @@ MAX_NUM_EXAMPLES = -1 # Max number of items from QRData to process. -1 means pro
 MAX_EXTRA_TURNS = 3 # The max number of retries the model gets for writing code
 THINK = True # Set to true if the model you are using outputs <think></think> tags
 PROMPT_OPTIONS = {"prompt":"identify_common_causes_effect_modifiers",
-    "example":False,
+    "example":True,
     "rows":10}
 ################################################################
 
@@ -63,6 +63,9 @@ def process(
                 {"role": "assistant", "content": answer_start},
             ]
             stop = ["```"]
+
+        log = [{"role": "user", "content": prompt}]
+        
         for chunk in client.generate(
             prompt=messages,
             stream=True,
@@ -72,6 +75,7 @@ def process(
         ):
             answer += chunk
 
+        log.append({"role": "assistant", "content": answer})
         answer, code = extract_code(answer)
 
         output, stdout, stderr = exec_with_output(
@@ -79,13 +83,16 @@ def process(
         )
 
         for _ in range(max_extra_turns):
+            log.append({"role": "user",
+                        "content": f"Output: {output}\nSTDOUT: {stdout}\nSTDERR: {stderr}"})
+            
             if output != "" and stderr == "":
                 break
 
             print(f"Answer: {output}")
             print(f"STDOUT: {stdout}")
             print(f"STDERR: {stderr}")
-
+            
             if think:
                 messages.extend(
                     [
@@ -118,7 +125,7 @@ def process(
                 stop=stop,
             ):
                 answer += chunk
-
+            log.append({"role": "assistant", "content": answer})
             answer, code = extract_code(answer)
 
             output, stdout, stderr = exec_with_output(
@@ -139,6 +146,10 @@ def process(
             "correct": correct,
         }
         save_result(RESULTS_PATH, result_record)
+
+        logpath = f"results/logs/{MODEL_NAME}_Q{idx}_log.jsonl"
+        for r in log:
+            save_result(logpath, r)
 
 
 if __name__ == "__main__":
