@@ -10,15 +10,21 @@ from prompts import format_QRData_item
 ################################################################
 # Settings
 ################################################################
-LLAMA_CPP_SERVER_BASE_URL = "http://localhost:55552" # The llama-server url
-BENCHMARK_PATH = "QRData/benchmark" # Path to the folder containing data/ and QRData.json
-LOG = True # If true, LlamaServerClient will print model responses in the terminal
-MAX_NUM_EXAMPLES = -1 # Max number of items from QRData to process. -1 means process all items
-MAX_EXTRA_TURNS = 3 # The max number of retries the model gets for writing code
-THINK = True # Set to true if the model you are using outputs <think></think> tags
-PROMPT_OPTIONS = {"prompt":"identify_common_causes_effect_modifiers",
-    "example":False,
-    "rows":10}
+LLAMA_CPP_SERVER_BASE_URL = "http://localhost:55552"  # The llama-server url
+BENCHMARK_PATH = (
+    "QRData/benchmark"  # Path to the folder containing data/ and QRData.json
+)
+LOG = True  # If true, LlamaServerClient will print model responses in the terminal
+MAX_NUM_EXAMPLES = (
+    -1
+)  # Max number of items from QRData to process. -1 means process all items
+MAX_EXTRA_TURNS = 3  # The max number of retries the model gets for writing code
+THINK = True  # Set to true if the model you are using outputs <think></think> tags
+PROMPT_OPTIONS = {
+    "prompt": "identify_common_causes_effect_modifiers",
+    "example": False,
+    "rows": 10,
+}
 ################################################################
 
 # Make sure results folder exists
@@ -49,13 +55,35 @@ def process(
         max_num_examples = len(data)
     max_num_examples = min(len(data), max_num_examples)
     for idx, item in data[:max_num_examples]:
-        prompt, answer_start = format_QRData_item(BENCHMARK_PATH, item, **PROMPT_OPTIONS)
+        prompt, answer_start = format_QRData_item(
+            BENCHMARK_PATH, item, **PROMPT_OPTIONS
+        )
         if think:
             answer = ""
             messages = [
                 {"role": "user", "content": prompt},
             ]
-            stop = []
+            for chunk in client.generate(
+                prompt=messages + [{"role": "assistant", "content": "<think>"}],
+                stream=True,
+                log_response=LOG,
+                text_only=True,
+                stop=["</think>"],
+            ):
+                answer += chunk
+
+            answer += "</think>\n" + answer_start
+
+            for chunk in client.generate(
+                prompt=messages + [{"role": "assistant", "content": answer}],
+                stream=True,
+                log_response=LOG,
+                text_only=True,
+                stop=["```"],
+            ):
+                answer += chunk
+
+            answer += "```"
         else:
             answer = answer_start
             messages = [
@@ -63,14 +91,17 @@ def process(
                 {"role": "assistant", "content": answer_start},
             ]
             stop = ["```"]
-        for chunk in client.generate(
-            prompt=messages,
-            stream=True,
-            log_response=LOG,
-            text_only=True,
-            stop=stop,
-        ):
-            answer += chunk
+
+            for chunk in client.generate(
+                prompt=messages,
+                stream=True,
+                log_response=LOG,
+                text_only=True,
+                stop=stop,
+            ):
+                answer += chunk
+
+            answer += "```"
 
         answer, code = extract_code(answer)
 
@@ -97,6 +128,28 @@ def process(
                     ]
                 )
                 answer = ""
+
+                for chunk in client.generate(
+                    prompt=messages + [{"role": "assistant", "content": "<think>"}],
+                    stream=True,
+                    log_response=LOG,
+                    text_only=True,
+                    stop=["</think>"],
+                ):
+                    answer += chunk
+
+                answer += "</think>\n" + answer_start
+
+                for chunk in client.generate(
+                    prompt=messages + [{"role": "assistant", "content": answer}],
+                    stream=True,
+                    log_response=LOG,
+                    text_only=True,
+                    stop=["```"],
+                ):
+                    answer += chunk
+
+                answer += "```"
             else:
                 messages[-1] = {"role": "assistant", "content": answer}
                 messages.extend(
@@ -109,15 +162,22 @@ def process(
                     ]
                 )
                 answer = answer_start
+                messages = [
+                    {"role": "user", "content": prompt},
+                    {"role": "assistant", "content": answer_start},
+                ]
+                stop = ["```"]
 
-            for chunk in client.generate(
-                prompt=messages,
-                stream=True,
-                log_response=LOG,
-                text_only=True,
-                stop=stop,
-            ):
-                answer += chunk
+                for chunk in client.generate(
+                    prompt=messages,
+                    stream=True,
+                    log_response=LOG,
+                    text_only=True,
+                    stop=stop,
+                ):
+                    answer += chunk
+
+                answer += "```"
 
             answer, code = extract_code(answer)
 
