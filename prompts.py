@@ -123,7 +123,7 @@ Define a distance metric and then use the metric to match closest points between
 causal_estimate_dmatch = model.estimate_effect(identified_estimand,
                                               method_name="backdoor.distance_matching",
                                               target_units="att",
-                                              method_params={'distance_metric':"minkowski", 'p':2})
+                                              method_params={'distance_metric':"minkowski", 'p':2}) #euclidean distance
 
 Method 3: Propensity Score Stratification
 We will be using propensity scores to stratify units in the data.
@@ -138,6 +138,19 @@ We will be using propensity scores to match units in the data.
 causal_estimate_match = model.estimate_effect(identified_estimand,
                                               method_name="backdoor.propensity_score_matching",
                                               target_units="atc")
+
+Alternatively, Causalinference has a simple way to train bias adjusted matching estimators:
+from causalinference import CausalModel
+
+cm = CausalModel(
+    Y=med["recovery"].values, 
+    D=med["medication"].values, 
+    X=med[["severity", "age", "sex"]].values
+)
+
+cm.est_via_matching(matches=1, bias_adj=True)
+
+print(cm.estimates)
 
 Method 5: Weighting
 We will be using (inverse) propensity scores to assign weights to units in the data. DoWhy supports a few different weighting schemes: 1. Vanilla Inverse Propensity Score weighting (IPS) (weighting_scheme=“ips_weight”) 2. Self-normalized IPS weighting (also known as the Hajek estimator) (weighting_scheme=“ips_normalized_weight”) 3. Stabilized IPS weighting (weighting_scheme = “ips_stabilized_weight”)
