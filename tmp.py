@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from dowhy import CausalModel
 import json
 
@@ -50,15 +51,6 @@ graph [
 """
 
 
-data = json.load(open("QRData/QRData/benchmark/QRData.json"))
-for idx, item in enumerate(data):
-    item["id"] = idx
-
-# Save to a new file
-with open('QRData/QRData/benchmark/QRData_ids.json', 'w') as f:
-    json.dump(data, f, indent=2)
-
-exit()
 
 # Create the causal model
 model = CausalModel(
@@ -71,8 +63,8 @@ model = CausalModel(
 
 
     # Identify the causal estimand
-    identified_estimand = model.identify_effect()
-    print(identified_estimand)
+identified_estimand = model.identify_effect()
+print(identified_estimand)
 
 # Estimate the effect using Instrumental Variable (IV) regression
 estimate = model.estimate_effect(
@@ -80,4 +72,32 @@ estimate = model.estimate_effect(
 )
 
     # Return the estimated LATE, rounded to 2 decimal places
-    return round(estimate.value, 2)
+print(round(estimate.value, 2))
+
+# 1) Load the data
+df = pd.read_csv("QRData/QRData/benchmark/data/ak91.csv")
+
+# 2) Define the instrument and controls
+df["q4"] = (df["quarter_of_birth"] == 4).astype(int)
+# One-hot–encode state_of_birth
+state_dummies = pd.get_dummies(df["state_of_birth"], prefix="state", drop_first=True)
+df = pd.concat([df, state_dummies], axis=1)
+
+# 3) Specify the causal model
+model = CausalModel(
+    data=df,
+    treatment="years_of_schooling",
+    outcome="log_wage",
+    instruments=["q4"],
+    common_causes=["year_of_birth"] + list(state_dummies.columns)
+)
+
+# 4) Identify and estimate using two-stage least squares (IV)
+identified = model.identify_effect()
+iv_estimate = model.estimate_effect(identified, method_name="iv.instrumental_variable")
+
+beta_hat = iv_estimate.value   # this is the effect on log_wage per extra year
+
+# 5) Convert to % wage change:  (exp(β) − 1) × 100
+percent_increase = (np.exp(beta_hat) - 1) * 100
+print(f"Estimated % increase in wage per extra year of schooling: {percent_increase:.2f}%")
