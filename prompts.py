@@ -104,6 +104,69 @@ def solution():
 """,
 }
 
+
+dowhy_est_methods = """
+DoWhy: Different estimation methods for causal inference
+This is a quick introduction to the DoWhy causal inference library. We will load in a sample dataset and use different methods for estimating the causal effect of a (pre-specified)treatment variable on a (pre-specified) outcome variable.
+
+Method 1: Regression
+Use linear regression.
+
+causal_estimate_reg = model.estimate_effect(identified_estimand,
+        method_name="backdoor.linear_regression",
+        test_significance=True)
+
+
+Method 2: Distance Matching
+Define a distance metric and then use the metric to match closest points between treatment and control.
+
+causal_estimate_dmatch = model.estimate_effect(identified_estimand,
+                                              method_name="backdoor.distance_matching",
+                                              target_units="att",
+                                              method_params={'distance_metric':"minkowski", 'p':2})
+
+Method 3: Propensity Score Stratification
+We will be using propensity scores to stratify units in the data.
+
+causal_estimate_strat = model.estimate_effect(identified_estimand,
+                                              method_name="backdoor.propensity_score_stratification",
+                                              target_units="att")
+
+Method 4: Propensity Score Matching
+We will be using propensity scores to match units in the data.
+
+causal_estimate_match = model.estimate_effect(identified_estimand,
+                                              method_name="backdoor.propensity_score_matching",
+                                              target_units="atc")
+
+Method 5: Weighting
+We will be using (inverse) propensity scores to assign weights to units in the data. DoWhy supports a few different weighting schemes: 1. Vanilla Inverse Propensity Score weighting (IPS) (weighting_scheme=“ips_weight”) 2. Self-normalized IPS weighting (also known as the Hajek estimator) (weighting_scheme=“ips_normalized_weight”) 3. Stabilized IPS weighting (weighting_scheme = “ips_stabilized_weight”)
+
+causal_estimate_ipw = model.estimate_effect(identified_estimand,
+                                            method_name="backdoor.propensity_score_weighting",
+                                            target_units = "ate",
+                                            method_params={"weighting_scheme":"ips_weight"})
+
+Method 6: Instrumental Variable
+We will be using the Wald estimator for the provided instrumental variable.
+
+causal_estimate_iv = model.estimate_effect(identified_estimand,
+        method_name="iv.instrumental_variable", method_params = {'iv_instrument_name': 'Z0'})
+
+Method 7: Regression Discontinuity
+We will be internally converting this to an equivalent instrumental variables problem.
+
+causal_estimate_regdist = model.estimate_effect(identified_estimand,
+        method_name="iv.regression_discontinuity",
+        method_params={'rd_variable_name':'Z1',
+                       'rd_threshold_value':0.5,
+                       'rd_bandwidth': 0.15})
+print(causal_estimate_regdist)
+print("Causal Estimate is " + str(causal_estimate_regdist.value))
+"""
+
+
+
 example_trace = """ 
 Here is an example of correct reasoning and response on one of these problems:
 
