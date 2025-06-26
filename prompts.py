@@ -161,8 +161,7 @@ causal_estimate_regdist = model.estimate_effect(identified_estimand,
         method_params={'rd_variable_name':'Z1',
                        'rd_threshold_value':0.5,
                        'rd_bandwidth': 0.15})
-print(causal_estimate_regdist)
-print("Causal Estimate is " + str(causal_estimate_regdist.value))
+
 """
 
 
