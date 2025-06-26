@@ -1,9 +1,5 @@
 import pandas as pd
 from dowhy import CausalModel
-import json
-
-# Load your data
-data = pd.read_csv("QRData/QRData/benchmark/data/hospital_treatment.csv")
 
 graph = """
         digraph {
@@ -11,6 +7,31 @@ graph = """
             push_delivered -> in_app_purchase;
         }
     """
+graph = """
+graph [
+    directed 1
+    node [
+        id 1
+        label "X"
+    ]
+    node [
+        id 2
+        label "Y"
+    ]
+    node [
+        id 3
+        label "Z"
+    ]
+    edge [
+        source 1
+        target 2
+    ]
+    edge [
+        source 2
+        target 3
+    ]
+]
+"""
 graph = """
 graph [
     directed 1
@@ -50,34 +71,27 @@ graph [
 """
 
 
-data = json.load(open("QRData/QRData/benchmark/QRData.json"))
-for idx, item in enumerate(data):
-    item["id"] = idx
+def solution():
+    # Load your data
+    data = pd.read_csv("QRData/benchmark/data/app_engagement_push.csv")
 
-# Save to a new file
-with open('QRData/QRData/benchmark/QRData_ids.json', 'w') as f:
-    json.dump(data, f, indent=2)
-
-exit()
-
-# Create the causal model
-model = CausalModel(
-    data=data,
-    treatment="treatment",  # Actual treatment received
-    outcome="days",  # Outcome of interest
-    graph=graph,
-)
-
-
+    # Create the causal model
+    model = CausalModel(
+        data=data,
+        treatment="push_delivered",  # Actual treatment received
+        outcome="in_app_purchase",  # Outcome of interest
+        instruments=["push_assigned"],  # Instrumental variable
+        graph=graph,
+    )
 
     # Identify the causal estimand
     identified_estimand = model.identify_effect()
     print(identified_estimand)
 
-# Estimate the effect using Instrumental Variable (IV) regression
-estimate = model.estimate_effect(
-    identified_estimand, method_name="backdoor.linear_regression"
-)
+    # Estimate the effect using Instrumental Variable (IV) regression
+    estimate = model.estimate_effect(
+        identified_estimand, method_name="iv.instrumental_variable"
+    )
 
     # Return the estimated LATE, rounded to 2 decimal places
     return round(estimate.value, 2)
