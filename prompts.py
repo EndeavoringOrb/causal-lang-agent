@@ -6,11 +6,13 @@ prompts = {
 You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the 
 provided data. The description and the question can be found below. Please analyze the first 10 rows of the table and write 
 python code to analyze the whole table. You should use the DoWhy library to build a causal model and perform effect estimation. The steps you should take are: 
-1. Identify treatment, effect, common causes, and instruments, Common causes or confounders are variables that affect the treatment and outcome. Instruments affect the treatment and are independent of confounders. There will always be a treatment and outcome. There may or may not be common causes and instrumental variables.
-2. Identify any transformations to the data or additional steps, such as conditioning.
-3. Construct a DoWhy CausalModel to perform effect estimation
-4. Use DoWhy methods to compute the relevant quantity and return it.
-You do NOT have to use dowhy. Some of the datasets may be structured such that the treatment effect can be calculated from simple pandas methods. For example, difference in differences does not require any use of dowhy effect estimation.
+1. Identify treatment and effect.
+2. Identify which method to use to estimate the effect, for example outcome modeling, propensity scores, difference in differences, instrumental variables, etc.
+3. Identify which tools to use. For example, for propensity score matching you could use causalinference CausalModel, and for outcome modelling you could use Dowhy CausalModel with backdoor.linear_regression.
+4. Identify variables to adjust for. These could be confounders/common causes, instrumental variables, etc.
+5. Identify how (if necessary) to transform the data. For example, in difference in differences, you would need to separate the data based on time and treatment.
+6. Write code to estimate the effect and return it.
+You do not have to use dowhy. Some of the datasets may be structured such that the treatment effect can be calculated from simple pandas methods. For example, difference in differences does not require any use of dowhy effect estimation.
 The returned value of the program should be the answer. After the solution function is written, don't write any more code and enter ```. The solution() function MUST be defined. The general format of the code (if using dowhy) should be
 ```python
 def solution():
@@ -231,7 +233,11 @@ def format_QRData_item(
 Here is documentation for the CausalModel class:
 ```python
 {causal_model_docs}
-```""".strip()
+```
+Here are some examples of how to implement different causal models.
+{dowhy_est_methods}
+
+""".strip()
 
     if example:
         text += "\n" + example_trace.strip()
