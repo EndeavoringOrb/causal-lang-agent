@@ -180,7 +180,6 @@ causal_estimate_regdist = model.estimate_effect(identified_estimand,
 """
 
 
-
 example_trace = """ 
 Here is an example of correct reasoning and response on one of these problems:
 
