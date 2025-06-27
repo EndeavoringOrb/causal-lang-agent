@@ -5,15 +5,15 @@ prompts = {
     "identify_common_causes_effect_modifiers": """
 You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the 
 provided data. The description and the question can be found below. Please analyze the first 10 rows of the table and write 
-python code to analyze the whole table. You should use the DoWhy library to build a causal model and perform effect estimation. The steps you should take are: 
+python code to analyze the whole table. You should use the DoWhy or causalinference library to build a causal model and perform effect estimation. The steps you should take are: 
 1. Identify treatment and effect.
 2. Identify which method to use to estimate the effect, for example outcome modeling, propensity scores, difference in differences, instrumental variables, etc.
 3. Identify which tools to use. For example, for propensity score matching you could use causalinference CausalModel, and for outcome modelling you could use Dowhy CausalModel with backdoor.linear_regression.
 4. Identify variables to adjust for. These could be confounders/common causes, instrumental variables, etc.
 5. Identify how (if necessary) to transform the data. For example, in difference in differences, you would need to separate the data based on time and treatment.
 6. Write code to estimate the effect and return it.
-You do not have to use dowhy. Some of the datasets may be structured such that the treatment effect can be calculated from simple pandas methods. For example, difference in differences does not require any use of dowhy effect estimation.
-The returned value of the program should be the answer. After the solution function is written, don't write any more code and enter ```. The solution() function MUST be defined. The general format of the code (if using dowhy) should be
+You do not have to use dowhy or causalinference. Some of the datasets may be structured such that the treatment effect can be calculated from simple pandas methods, and some might be simpler with other libraries. You have access to Dowhy, causalinference, pandas, scipy, econml, and causal-learn. For example, difference in differences does not require any use of dowhy effect estimation.
+The returned value of the program should be the answer. After the solution function is written, don't write any more code and enter ```. The solution() function MUST be defined. The general format of the code (in an example of outcome modeling with dowhy) should be
 ```python
 def solution():
     from dowhy import CausalModel
@@ -111,8 +111,17 @@ dowhy_est_methods = """
 DoWhy: Different estimation methods for causal inference
 This is a quick introduction to the DoWhy causal inference library. We will load in a sample dataset and use different methods for estimating the causal effect of a (pre-specified)treatment variable on a (pre-specified) outcome variable.
 
-Method 1: Regression
+Method 1: Outcome estimation
 Use linear regression.
+
+model = dowhy.CausalModel(
+    data=df
+    treatment="treatment_col"
+    outcome="outcome_col"
+    common_causes=[...] #confounders. Be careful to include the right variables here!
+)
+
+identified_estimand = model.identify_effect()
 
 causal_estimate_reg = model.estimate_effect(identified_estimand,
         method_name="backdoor.linear_regression",
@@ -127,12 +136,26 @@ causal_estimate_dmatch = model.estimate_effect(identified_estimand,
                                               target_units="att",
                                               method_params={'distance_metric':"minkowski", 'p':2}) #euclidean distance
 
-Method 3: Propensity Score Stratification
-We will be using propensity scores to stratify units in the data.
+Alternatively, you could use the causalinference library, which supports bias adjustment. 
 
-causal_estimate_strat = model.estimate_effect(identified_estimand,
-                                              method_name="backdoor.propensity_score_stratification",
-                                              target_units="att")
+cm = causalinference.CausalModel(
+    Y=med["outcome"].values, 
+    D=med["treatment"].values, 
+    X=med[[confounders]].values
+)
+
+cm.est_via_matching(matches=1, bias_adj=True)
+
+return cm.estimates["matching"]["ate"]
+
+Method 3: Difference in differences
+Seperate the data into the treated and control groups at the different time steps.
+
+filter = lambda a, b: df["outcome"].where(df["time"]==a & df["treatment"]==b)
+
+treated_before, treated_after, control_before, control_after = filter(0, 1), filter(1, 1), filter(0, 0), filter(1, 0)
+
+return((treated_after.mean()-treated_before.mean())-(control_after.mean()-control_before.mean()))
 
 Method 4: Propensity Score Matching
 We will be using propensity scores to match units in the data.
@@ -141,20 +164,7 @@ causal_estimate_match = model.estimate_effect(identified_estimand,
                                               method_name="backdoor.propensity_score_matching",
                                               target_units="atc")
 
-Alternatively, Causalinference has a simple way to train bias adjusted matching estimators:
-from causalinference import CausalModel
-
-cm = CausalModel(
-    Y=med["recovery"].values, 
-    D=med["medication"].values, 
-    X=med[["severity", "age", "sex"]].values
-)
-
-cm.est_via_matching(matches=1, bias_adj=True)
-
-print(cm.estimates)
-
-Method 5: Weighting
+Method 5: Propensity Score Weighting
 We will be using (inverse) propensity scores to assign weights to units in the data. DoWhy supports a few different weighting schemes: 1. Vanilla Inverse Propensity Score weighting (IPS) (weighting_scheme=“ips_weight”) 2. Self-normalized IPS weighting (also known as the Hajek estimator) (weighting_scheme=“ips_normalized_weight”) 3. Stabilized IPS weighting (weighting_scheme = “ips_stabilized_weight”)
 
 causal_estimate_ipw = model.estimate_effect(identified_estimand,
