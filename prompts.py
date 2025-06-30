@@ -154,20 +154,25 @@ def format_QRData_item(
     item,
     prompt="identify_common_causes_effect_modifiers",
     example=False,
+    docs=True,
     rows=10,
+
 ):
     with open("causal_model_docs.py", "r", encoding="utf-8") as f:
         causal_model_docs = f.read().strip()
     assert prompt in prompts, f"Prompt {prompt} is not a valid prompt name {list(prompts.keys())}"
-    text = f"""{prompts[prompt]}
-Here is documentation for the CausalModel class:
-```python
-{causal_model_docs}
-```
-Here are some examples of how to implement different causal models.
-{dowhy_est_methods}
+    if docs:
+        text = f"""{prompts[prompt]}
+    Here is documentation for the CausalModel class:
+    ```python
+    {causal_model_docs}
+    ```
+    Here are some examples of how to implement different causal models.
+    {dowhy_est_methods}
 
-""".strip()
+    """.strip()
+    else:
+        text = f"""{prompts[prompt]}""".strip()
 
     if example:
         text += "\n" + example_trace.strip()
