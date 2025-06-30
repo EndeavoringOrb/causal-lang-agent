@@ -12,7 +12,7 @@ python code to analyze the whole table. You should use the DoWhy or causalinfere
 4. Identify variables to adjust for. These could be confounders/common causes, instrumental variables, etc.
 5. Identify how (if necessary) to transform the data. For example, in difference in differences, you would need to separate the data based on time and treatment.
 6. Write code to estimate the effect and return it.
-You do not have to use dowhy or causalinference. Some of the datasets may be structured such that the treatment effect can be calculated from simple pandas methods, and some might be simpler with other libraries. You have access to Dowhy, causalinference, pandas, scipy, econml, and causal-learn. For example, difference in differences does not require any use of dowhy effect estimation.
+You do not have to use dowhy or causalinference. Some of the datasets may be structured such that the treatment effect can be calculated from simple pandas methods, and some might be simpler with other libraries. You have access to Dowhy, causalinference, pandas, scipy, econml, sklearn, and causal-learn. For example, difference in differences does not require any use of dowhy effect estimation.
 The returned value of the program should be the answer. After the solution function is written, don't write any more code and enter ```. The solution() function MUST be defined. The general format of the code (in an example of outcome modeling with dowhy) should be
 ```python
 def solution():
@@ -148,6 +148,7 @@ cm.est_via_matching(matches=1, bias_adj=True)
 
 return cm.estimates["matching"]["ate"]
 
+
 Method 3: Difference in differences
 Seperate the data into the treated and control groups at the different time steps.
 
@@ -155,7 +156,8 @@ filter = lambda a, b: df["outcome"].where(df["time"]==a & df["treatment"]==b)
 
 treated_before, treated_after, control_before, control_after = filter(0, 1), filter(1, 1), filter(0, 0), filter(1, 0)
 
-return((treated_after.mean()-treated_before.mean())-(control_after.mean()-control_before.mean()))
+return (treated_after.mean()-treated_before.mean())-(control_after.mean()-control_before.mean())
+
 
 Method 4: Propensity Score Matching
 We will be using propensity scores to match units in the data.
@@ -164,6 +166,7 @@ causal_estimate_match = model.estimate_effect(identified_estimand,
                                               method_name="backdoor.propensity_score_matching",
                                               target_units="atc")
 
+                                              
 Method 5: Propensity Score Weighting
 We will be using (inverse) propensity scores to assign weights to units in the data. DoWhy supports a few different weighting schemes: 1. Vanilla Inverse Propensity Score weighting (IPS) (weighting_scheme=“ips_weight”) 2. Self-normalized IPS weighting (also known as the Hajek estimator) (weighting_scheme=“ips_normalized_weight”) 3. Stabilized IPS weighting (weighting_scheme = “ips_stabilized_weight”)
 
@@ -172,12 +175,14 @@ causal_estimate_ipw = model.estimate_effect(identified_estimand,
                                             target_units = "ate",
                                             method_params={"weighting_scheme":"ips_weight"})
 
+                                            
 Method 6: Instrumental Variable
 We will be using the Wald estimator for the provided instrumental variable.
 
 causal_estimate_iv = model.estimate_effect(identified_estimand,
         method_name="iv.instrumental_variable", method_params = {'iv_instrument_name': 'Z0'})
 
+        
 Method 7: Regression Discontinuity
 We will be internally converting this to an equivalent instrumental variables problem.
 
@@ -187,6 +192,21 @@ causal_estimate_regdist = model.estimate_effect(identified_estimand,
                        'rd_threshold_value':0.5,
                        'rd_bandwidth': 0.15})
 
+
+Method 8: Doubly Robust Estimation
+Combine outcome modelling and propensity scores. Here is an example using sklearn
+
+from sklearn.linear_model import LogisticRegression, LinearRegression
+
+def doubly_robust(df, X, T, Y):
+    ps = LogisticRegression(C=1e6, max_iter=1000).fit(df[X], df[T]).predict_proba(df[X])[:, 1]
+    mu0 = LinearRegression().fit(df.query(f"{T}==0")[X], df.query(f"{T}==0")[Y]).predict(df[X])
+    mu1 = LinearRegression().fit(df.query(f"{T}==1")[X], df.query(f"{T}==1")[Y]).predict(df[X])
+    return (
+        np.mean(df[T]*(df[Y] - mu1)/ps + mu1) -
+        np.mean((1-df[T])*(df[Y] - mu0)/(1-ps) + mu0)
+    )
+                       
 """
 
 
