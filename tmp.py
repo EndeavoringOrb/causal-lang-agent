@@ -1,10 +1,6 @@
 import pandas as pd
 import numpy as np
 from dowhy import CausalModel
-import json
-
-# Load your data
-data = pd.read_csv("QRData/QRData/benchmark/data/hospital_treatment.csv")
 
 graph = """
         digraph {
@@ -12,6 +8,31 @@ graph = """
             push_delivered -> in_app_purchase;
         }
     """
+graph = """
+graph [
+    directed 1
+    node [
+        id 1
+        label "X"
+    ]
+    node [
+        id 2
+        label "Y"
+    ]
+    node [
+        id 3
+        label "Z"
+    ]
+    edge [
+        source 1
+        target 2
+    ]
+    edge [
+        source 2
+        target 3
+    ]
+]
+"""
 graph = """
 graph [
     directed 1
@@ -51,25 +72,27 @@ graph [
 """
 
 
+def solution():
+    # Load your data
+    data = pd.read_csv("QRData/benchmark/data/app_engagement_push.csv")
 
-# Create the causal model
-model = CausalModel(
-    data=data,
-    treatment="treatment",  # Actual treatment received
-    outcome="days",  # Outcome of interest
-    graph=graph,
-)
-
-
+    # Create the causal model
+    model = CausalModel(
+        data=data,
+        treatment="push_delivered",  # Actual treatment received
+        outcome="in_app_purchase",  # Outcome of interest
+        instruments=["push_assigned"],  # Instrumental variable
+        graph=graph,
+    )
 
     # Identify the causal estimand
 identified_estimand = model.identify_effect()
 print(identified_estimand)
 
-# Estimate the effect using Instrumental Variable (IV) regression
-estimate = model.estimate_effect(
-    identified_estimand, method_name="backdoor.linear_regression"
-)
+    # Estimate the effect using Instrumental Variable (IV) regression
+    estimate = model.estimate_effect(
+        identified_estimand, method_name="iv.instrumental_variable"
+    )
 
     # Return the estimated LATE, rounded to 2 decimal places
 print(round(estimate.value, 2))
@@ -101,3 +124,5 @@ beta_hat = iv_estimate.value   # this is the effect on log_wage per extra year
 # 5) Convert to % wage change:  (exp(β) − 1) × 100
 percent_increase = (np.exp(beta_hat) - 1) * 100
 print(f"Estimated % increase in wage per extra year of schooling: {percent_increase:.2f}%")
+
+    return round(estimate.value, 2)

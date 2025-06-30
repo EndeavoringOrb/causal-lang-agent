@@ -210,7 +210,6 @@ def doubly_robust(df, X, T, Y):
 """
 
 
-
 example_trace = """ 
 Here is an example of correct reasoning and response on one of these problems:
 
