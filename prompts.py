@@ -1,110 +1,10 @@
 import pandas as pd
 import os
 
-prompts = {
-    "identify_common_causes_effect_modifiers": """
-You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the 
-provided data. The description and the question can be found below. Please analyze the first 10 rows of the table and write 
-python code to analyze the whole table. You should use the DoWhy or causalinference library to build a causal model and perform effect estimation. The steps you should take are: 
-1. Identify treatment and effect.
-2. Identify which method to use to estimate the effect, for example outcome modeling, propensity scores, difference in differences, instrumental variables, etc.
-3. Identify which tools to use. For example, for propensity score matching you could use causalinference CausalModel, and for outcome modelling you could use Dowhy CausalModel with backdoor.linear_regression.
-4. Identify variables to adjust for. These could be confounders/common causes, instrumental variables, etc.
-5. Identify how (if necessary) to transform the data. For example, in difference in differences, you would need to separate the data based on time and treatment.
-6. Write code to estimate the effect and return it.
-You do not have to use dowhy or causalinference. Some of the datasets may be structured such that the treatment effect can be calculated from simple pandas methods, and some might be simpler with other libraries. You have access to Dowhy, causalinference, pandas, scipy, econml, sklearn, and causal-learn. For example, difference in differences does not require any use of dowhy effect estimation.
-The returned value of the program should be the answer. After the solution function is written, don't write any more code and enter ```. The solution() function MUST be defined. The general format of the code (in an example of outcome modeling with dowhy) should be
-```python
-def solution():
-    from dowhy import CausalModel
-    import pandas as pd
-
-    data = pd.read_csv(filename)
-
-    #filter or transform data as necessary
-
-    model = CausalModel(
-        data = data,
-        treatment = "treatment_col"
-        outcome = "outcome_col"
-        common_causes = ["causes"]
-        instruments = ["instruments"]
-    )
-    identified_estimand = model.identify_effect()
-    answer = model.estimate_effect(identified_estimand, method_name=...)
-    return answer.value
-```
-""",
-    "original": """You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the 
-provided data. The description and the question can be found below. Please analyze the first 10 rows of the table and write 
-python code to analyze the whole table. You must use the DoWhy library to build a causal model and perform effect estimation. The returned value of the program should be 
-the answer. The path to the causal graph is graph.gml. After the solution function is written, don't write any more code and enter ```. The general format of the code should be
-```python
-def solution():
-    from dowhy import CausalModel
-    import pandas as pd
-
-    data = pd.read_csv(filename)
-
-    model = CausalModel(
-        data = data,
-        treatment = "treatment_col"
-        outcome = "outcome_col"
-        graph = "graph.gml"
-    )
-    identified_estimand = model.identify_effect()
-    answer = model.estimate_effect(identified_estimand, method_name=...)
-    return answer.value
-```
-""",
-    "no_discovery": """You are a data analyst and good at quantitative reasoning. You are required to respond to a quantitative question using the 
-provided data. The description and the question can be found below. Please analyze the first 10 rows of the table and write 
-python code to analyze the whole table. You must use the DoWhy library to build a causal model and perform effect estimation. The returned value of the program should be 
-the answer. Write the graph text in gml format. After the solution function is written, don't write any more code and enter ```. The general format of the code should be
-```python
-def solution():
-    from dowhy import CausalModel
-    import pandas as pd
-
-    data = pd.read_csv(filename)
-    
-    # Example graph
-    graph = \"\"\"graph [
-    directed 1
-    node [
-        id 1
-        label "X"
-    ]
-    node [
-        id 2
-        label "Y"
-    ]
-    node [
-        id 3
-        label "Z"
-    ]
-    edge [
-        source 1
-        target 2
-    ]
-    edge [
-        source 2
-        target 3
-    ]
-]\"\"\"
-
-    model = CausalModel(
-        data = data,
-        treatment = "treatment_col"
-        outcome = "outcome_col"
-        graph = graph
-    )
-    identified_estimand = model.identify_effect()
-    answer = model.estimate_effect(identified_estimand, method_name="...")
-    return answer.value
-```
-""",
-}
+prompts = {}
+for filename in os.listdir("prompts"):
+    with open(f"prompts/{filename}") as f:
+        prompts[filename[:-4]] = f.read().strip()
 
 
 dowhy_est_methods = """
@@ -258,6 +158,7 @@ def format_QRData_item(
 ):
     with open("causal_model_docs.py", "r", encoding="utf-8") as f:
         causal_model_docs = f.read().strip()
+    assert prompt in prompts, f"Prompt {prompt} is not a valid prompt name {list(prompts.keys())}"
     text = f"""{prompts[prompt]}
 Here is documentation for the CausalModel class:
 ```python
