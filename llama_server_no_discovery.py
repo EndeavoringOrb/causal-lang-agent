@@ -96,6 +96,7 @@ def process(
         messages = [
             {"role": "user", "content": prompt},
         ]
+        output, stdout, stderr = "", "", ""
 
         for step_idx in range(max_extra_turns + 1):
             if output != "" and stderr == "" and (step_idx != 0):
@@ -162,7 +163,7 @@ if __name__ == "__main__":
         for item in enumerate(data)
         if (
             ("Causality" in item[1]["meta_data"]["keywords"])
-            and (item[1]["meta_data"]["question_type"] == "numerical")
+            # and (item[1]["meta_data"]["question_type"] == "numerical")
         )
     ]
 
