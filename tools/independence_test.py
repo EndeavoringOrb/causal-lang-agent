@@ -14,16 +14,14 @@ def conditional_independence(data, xcol, ycol):
     Returns:
     float: The p-value from the Fisher's Z-test.
     """
-    cit_obj = CIT(np.array(data), "fisherz") 
+    cit_obj = CIT(np.array(data), "gsq") 
     pvals = []
-    X = np.array(data[xcol].values)
-    Y = np.array(data[ycol].values)
+    X = data.columns.get_loc(xcol)
+    Y = data.columns.get_loc(ycol)
     for slabel in data.columns:
-        print(slabel, xcol, ycol)
         if slabel in [xcol, ycol]:
             continue
-        S = np.array(data[slabel].values)
-        print(X, Y, S)
+        S = [data.columns.get_loc(slabel)]
         pvals.append(cit_obj(X, Y, S))
     return cit_obj(X, Y), min(pvals)
 
