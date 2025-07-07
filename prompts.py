@@ -148,7 +148,6 @@ def solution():
 
 """
 
-
 def format_QRData_item(
     benchmark_path,
     item,
@@ -156,7 +155,6 @@ def format_QRData_item(
     example=False,
     docs=True,
     rows=10,
-
 ):
     with open("causal_model_docs.py", "r", encoding="utf-8") as f:
         causal_model_docs = f.read().strip()
