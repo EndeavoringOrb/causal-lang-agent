@@ -37,8 +37,8 @@ Abalation tests:
 Our react:
     full prompt - done
     qrdata prompt - done
-    our prompt, only API docs - matt
-    our prompt, only tool docs
+    our prompt, only API docs - results: 22 numerical, 133 multiple choice
+    our prompt, only tool docs - results: 21 numerical, 134 mc
     our prompt, no docs
 QRData react
     our full prompt
