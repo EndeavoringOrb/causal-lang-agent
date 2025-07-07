@@ -17,7 +17,7 @@ def summarize_results(results_filepath: str):
             "categorical": {"correct": 0, "total": 0},
             "causal": {"correct": 0, "total": 0},
             "statistical": {"correct": 0, "total": 0},
-            "causal and numerical":{"correct": 0, "total": 0}
+            "causal and numerical": {"correct": 0, "total": 0},
         }
     )
 
@@ -31,7 +31,7 @@ def summarize_results(results_filepath: str):
             correct = int(result["correct"])
             qtype = data[idx]["meta_data"]["question_type"]
 
-            key = (model)
+            key = model
             if qtype == "numerical":
                 stats[key]["numerical"]["total"] += 1
                 stats[key]["numerical"]["correct"] += correct
@@ -39,15 +39,17 @@ def summarize_results(results_filepath: str):
                 stats[key]["categorical"]["total"] += 1
                 stats[key]["categorical"]["correct"] += correct
             if "Causality" in data[idx]["meta_data"]["keywords"]:
-                stats[key]["causal"]['total'] += 1
-                stats[key]["causal"]['correct'] += correct
+                stats[key]["causal"]["total"] += 1
+                stats[key]["causal"]["correct"] += correct
             else:
-                stats[key]["statistical"]['total'] += 1
-                stats[key]["statistical"]['correct'] += correct
-            if "Causality" in data[idx]["meta_data"]["keywords"] and qtype == "numerical":
+                stats[key]["statistical"]["total"] += 1
+                stats[key]["statistical"]["correct"] += correct
+            if (
+                "Causality" in data[idx]["meta_data"]["keywords"]
+                and qtype == "numerical"
+            ):
                 stats[key]["causal and numerical"]["total"] += 1
                 stats[key]["causal and numerical"]["correct"] += correct
-
 
     # Print results by model and prompt_type
     for (model), values in stats.items():
@@ -59,7 +61,6 @@ def summarize_results(results_filepath: str):
         cau_correct = values["causal"]["correct"]
         caunum_total = values["causal and numerical"]["total"]
         caunum_correct = values["causal and numerical"]["correct"]
-        
 
         num_acc = num_correct / num_total if num_total else 0
         cat_acc = cat_correct / cat_total if cat_total else 0
@@ -70,10 +71,22 @@ def summarize_results(results_filepath: str):
         print(f"  Numerical Accuracy    : {num_acc:.2%} ({num_correct}/{num_total})")
         print(f"  Multiple Choice Acc   : {cat_acc:.2%} ({cat_correct}/{cat_total})")
         print(f"  Causal Accuracy    : {cau_acc:.2%} ({cau_correct}/{cau_total})")
-        print(f"  Causal + Numerical Accuracy    : {caunum_acc:.2%} ({caunum_correct}/{caunum_total})")
+        print(
+            f"  Causal + Numerical Accuracy    : {caunum_acc:.2%} ({caunum_correct}/{caunum_total})"
+        )
 
         print()
 
 
 if __name__ == "__main__":
-    summarize_results("tmp.jsonl")
+    ######################
+    # Settings
+    ######################
+    result_dir = "results"
+    ######################
+
+    result_files = [f"{result_dir}/{file}" for file in os.listdir(result_dir)]
+    result_files = [file for file in result_files if file.endswith(".jsonl")]
+    for file in result_files:
+        print(f"File: {file}")
+        summarize_results(file)
