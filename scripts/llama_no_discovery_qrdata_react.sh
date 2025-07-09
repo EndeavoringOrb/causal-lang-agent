@@ -1,8 +1,9 @@
 #!/bin/bash
-#SBATCH --job-name=llama_discovery
+#SBATCH --job-name=react_14B
 #SBATCH --time=24:00:00
 #SBATCH --partition=short
-#SBATCH --gres=gpu:A100:1
+#SBATCH --gres=gpu:1
+#SBATCH -C "H100|H200"
 #SBATCH --mem=64G
 #SBATCH --output=slurm_logs/%j.out
 
@@ -28,12 +29,12 @@ source .venv/bin/activate
 echo "GPU info:"
 nvidia-smi
 
-# Set model path
-MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/Qwen3-32B-UD-Q5_K_XL.gguf"
-# MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/gemma-3-27b-it-UD-Q4_K_XL.gguf"
+# Set variables
+PORT=55552
+# MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/Qwen3-32B-UD-Q5_K_XL.gguf"
+MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/Qwen3-14B-UD-Q6_K_XL.gguf"
 # MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/gemma-3-27b-it-UD-Q8_K_XL.gguf"
 # MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/Qwen3-8B-UD-Q5_K_XL.gguf"
-# MODEL_PATH="/home/azbelikoff/.cache/huggingface/hub/models--unsloth--Qwen3-8B-GGUF/snapshots/672575d5a4634e1c6f2a12b5a05e18f5a86f227f/Qwen3-8B-Q5_K_M.gguf"
 
 # Function to clean up llama-server
 cleanup() {
@@ -46,16 +47,17 @@ cleanup() {
 trap cleanup EXIT SIGINT SIGTERM
 
 # Start llama-server in the background
-./llama.cpp/llama-server --model "$MODEL_PATH" --host localhost --port 55552 -ngl 999 -c 65536 -np 2 &
+./llama.cpp/llama-server --model "$MODEL_PATH" --host localhost --port "$PORT" -ngl 999 -c 32768 &
 
 LLAMA_SERVER_PID=$!
 
 # Wait for the server to become ready
-python scripts/wait_for_llama_server.py
+python scripts/wait_for_llama_server.py --port "$PORT"
 if [ $? -ne 0 ]; then
     echo "llama-server failed to become ready."
     exit 1
 fi
 
 # Run inference script, passing model path as an argument
-python llama_server_discovery.py --model "$MODEL_PATH"
+echo "Running llama_server_no_discovery_qrdata_react.py"
+python llama_server_no_discovery_qrdata_react.py --model "$MODEL_PATH" --port "$PORT"

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=llama_discovery
+#SBATCH --job-name=llama_POT_14B
 #SBATCH --time=24:00:00
 #SBATCH --partition=short
 #SBATCH --gres=gpu:A100:1
@@ -29,7 +29,7 @@ echo "GPU info:"
 nvidia-smi
 
 # Set model path
-MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/Qwen3-32B-UD-Q5_K_XL.gguf"
+# MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/Qwen3-32B-UD-Q5_K_XL.gguf"
 # MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/gemma-3-27b-it-UD-Q4_K_XL.gguf"
 # MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/gemma-3-27b-it-UD-Q8_K_XL.gguf"
 # MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/Qwen3-8B-UD-Q5_K_XL.gguf"
@@ -46,7 +46,7 @@ cleanup() {
 trap cleanup EXIT SIGINT SIGTERM
 
 # Start llama-server in the background
-./llama.cpp/llama-server --model "$MODEL_PATH" --host localhost --port 55552 -ngl 999 -c 65536 -np 2 &
+./llama.cpp/llama-server --model "$MODEL_PATH" --host localhost --port 55552 -ngl 999 -c 32768 &
 
 LLAMA_SERVER_PID=$!
 
@@ -58,4 +58,4 @@ if [ $? -ne 0 ]; then
 fi
 
 # Run inference script, passing model path as an argument
-python llama_server_discovery.py --model "$MODEL_PATH"
+python run_llama_server.py --model "$MODEL_PATH"

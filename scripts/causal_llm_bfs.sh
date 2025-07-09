@@ -58,4 +58,4 @@ if [ $? -ne 0 ]; then
 fi
 
 # Run inference script, passing model path as an argument
-python llama_server_discovery.py --model "$MODEL_PATH"
+python run.py --dataset child --alg llm_bfs_llama_with_statistics --n_samples 100
