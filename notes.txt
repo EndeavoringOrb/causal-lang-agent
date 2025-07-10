@@ -42,7 +42,16 @@ Our react:
     our prompt, no docs - 20 num, 136 mc
 QRData react
     our full prompt
-    qrdata prompt
+    qrdata prompt - 
 PoT
-    our full prompt - 
+    our full prompt - 12 num, 131 mc
     QRData prompt - done
+
+
+Instances with no info about confounders/ivs
+356
+357
+363
+366
+367
+
