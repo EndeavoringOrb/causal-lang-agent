@@ -55,3 +55,10 @@
 {"model": "Qwen3-14B-UD-Q6_K_XL.gguf", "idx": 227, "answer": "4.59", "pred": 3.95, "correct": false}
 {"model": "Qwen3-14B-UD-Q6_K_XL.gguf", "idx": 228, "answer": "4.00", "pred": 3.97, "correct": true}
 {"model": "Qwen3-14B-UD-Q6_K_XL.gguf", "idx": 229, "answer": "4.72", "pred": 4.91, "correct": false}
+{"model": "Qwen3-14B-UD-Q6_K_XL.gguf", "idx": 263, "answer": "2457.89", "pred": 2457.89, "correct": true}
+{"model": "Qwen3-14B-UD-Q6_K_XL.gguf", "idx": 264, "answer": "9.25", "pred": 9.25, "correct": true}
+{"model": "Qwen3-14B-UD-Q6_K_XL.gguf", "idx": 265, "answer": "0.027", "pred": "", "correct": false}
+{"model": "Qwen3-14B-UD-Q6_K_XL.gguf", "idx": 266, "answer": "0.064", "pred": 0.007, "correct": false}
+{"model": "Qwen3-14B-UD-Q6_K_XL.gguf", "idx": 267, "answer": "0.089", "pred": 0.126, "correct": false}
+{"model": "Qwen3-14B-UD-Q6_K_XL.gguf", "idx": 262, "answer": "-19.51", "pred": -27.35, "correct": false}
+{"model": "Qwen3-14B-UD-Q6_K_XL.gguf", "idx": 268, "answer": "255051", "pred": 0, "correct": false}
