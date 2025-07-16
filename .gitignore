@@ -13,3 +13,5 @@ cache
 utils/profiler.py
 utils/toggle_profiler.ps1
 notes.txt
+results/tmp.jsonl
+results/tmp2.jsonl
