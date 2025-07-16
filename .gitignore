@@ -18,3 +18,4 @@ results/tmp2.jsonl
 tools/independence_test.py
 llama_server_no_discovery_original.py
 prompts/original.txt
+results/logs
