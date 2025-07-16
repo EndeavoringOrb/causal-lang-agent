@@ -1,16 +1,16 @@
 import os
 import json
-import pandas as pd
+import csv
 import argparse
 from utils.llama_server_client import LlamaServerClient
 from utils.utils import exec_with_output, is_correct, save_result, extract_code
 from prompts import format_QRData_item
 
-
 ################################################################
 # Settings
 ################################################################
-LLAMA_CPP_SERVER_BASE_URL = "http://localhost:55552"  # The llama-server url
+DEFAULT_PORT = 55552
+DEFAULT_HOST = "http://localhost"
 BENCHMARK_PATH = (
     "QRData/benchmark"  # Path to the folder containing data/ and QRData.json
 )
@@ -21,18 +21,13 @@ MAX_NUM_EXAMPLES = (
 MAX_EXTRA_TURNS = 3  # The max number of retries the model gets for writing code
 THINK = True  # Set to true if the model you are using outputs <think></think> tags
 PROMPT_OPTIONS = {
-    "prompt": "identify_common_causes_effect_modifiers",
+    "prompt": "combined",
     "example": False,
     "rows": 10,
 }
 ################################################################
 
-# Make sure results folder exists
-os.makedirs("results", exist_ok=True)
-num_results = len(os.listdir("results"))
-RESULTS_PATH = os.path.join("results", f"results_{num_results}.jsonl")
-
-# Try to get model name from arguments
+# Argument parsing
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--model",
@@ -40,8 +35,24 @@ parser.add_argument(
     default="Unknown",
     help="Path to the model used in llama-server",
 )
+parser.add_argument(
+    "--port",
+    type=int,
+    help="Port number for llama-server (default is 55552)",
+)
 args = parser.parse_args()
+
+# Extract model name
 MODEL_NAME = args.model.split("/")[-1]
+
+# Construct server URL
+port = args.port if args.port is not None else DEFAULT_PORT
+LLAMA_CPP_SERVER_BASE_URL = f"{DEFAULT_HOST}:{port}"
+
+# Make sure results folder exists
+os.makedirs("results", exist_ok=True)
+num_results = len(os.listdir("results"))
+RESULTS_PATH = os.path.join("results", f"results_{num_results}.jsonl")
 
 
 def generate_code(
@@ -154,8 +165,17 @@ def process(
 if __name__ == "__main__":
     client = LlamaServerClient(LLAMA_CPP_SERVER_BASE_URL)
 
-    with open(os.path.join(BENCHMARK_PATH, "QRData.json"), "r", encoding="utf-8") as f:
+    with open(
+        os.path.join(BENCHMARK_PATH, "QRData_cleaned.json"), "r", encoding="utf-8"
+    ) as f:
         data = json.load(f)
+
+    skip_idxs = set()
+    with open("results/results_24.jsonl", "r", encoding="utf-8") as f:
+        for line in f:
+            line = json.loads(line.strip())
+            skip_idxs.add(line["idx"])
+    print(f"Skipping {len(skip_idxs):,} items that have already been processed")
 
     print(f"Loaded {len(data):,} items")
     data = [
@@ -163,13 +183,16 @@ if __name__ == "__main__":
         for item in enumerate(data)
         if (
             ("Causality" in item[1]["meta_data"]["keywords"])
-            # and (item[1]["meta_data"]["question_type"] == "numerical")
+            and (item[1]["meta_data"]["question_type"] == "numerical")
+            and item[0] not in skip_idxs
         )
     ]
 
     def count_columns(csv_path):
-        df = pd.read_csv(csv_path)
-        return len(df.columns)
+        with open(csv_path, newline="") as csvfile:
+            reader = csv.reader(csvfile)
+            header = next(reader)
+            return len(header)
 
     data = sorted(
         data,

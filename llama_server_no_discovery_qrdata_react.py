@@ -12,9 +12,7 @@ from prompts import format_QRData_item_react
 ################################################################
 DEFAULT_PORT = 55553
 DEFAULT_HOST = "http://localhost"
-BENCHMARK_PATH = (
-    "/home/azbelikoff/projects/2025_Summer/QRData/benchmark"  # Path to the folder containing data/ and QRData.json
-)
+BENCHMARK_PATH = "/home/azbelikoff/projects/2025_Summer/QRData/benchmark"  # Path to the folder containing data/ and QRData.json
 LOG = True  # If true, LlamaServerClient will print model responses in the terminal
 MAX_NUM_EXAMPLES = (
     -1
@@ -50,9 +48,11 @@ port = args.port if args.port is not None else DEFAULT_PORT
 LLAMA_CPP_SERVER_BASE_URL = f"{DEFAULT_HOST}:{port}"
 
 # Make sure results folder exists
-os.makedirs("results", exist_ok=True)
-num_results = len(os.listdir("results"))
-RESULTS_PATH = os.path.join("results", f"results_{num_results}.jsonl")
+RESULTS_PATH = "/home/azbelikoff/projects/2025_Summer/results"
+os.makedirs(RESULTS_PATH, exist_ok=True)
+num_results = len(os.listdir(RESULTS_PATH))
+RESULTS_PATH = os.path.join(RESULTS_PATH, f"results_{num_results}.jsonl")
+print(f"Saving results to {RESULTS_PATH}")
 
 
 def react_turn(
@@ -245,7 +245,9 @@ def process(
 if __name__ == "__main__":
     client = LlamaServerClient(LLAMA_CPP_SERVER_BASE_URL)
 
-    with open(os.path.join(BENCHMARK_PATH, "QRData.json"), "r", encoding="utf-8") as f:
+    with open(
+        os.path.join(BENCHMARK_PATH, "QRData_cleaned.json"), "r", encoding="utf-8"
+    ) as f:
         data = json.load(f)
 
     print(f"Loaded {len(data):,} items")
@@ -253,6 +255,7 @@ if __name__ == "__main__":
         item
         for item in enumerate(data)
         if (("Causality" in item[1]["meta_data"]["keywords"]))
+        and (item[1]["meta_data"]["question_type"] == "numerical")
     ]
 
     def count_columns(csv_path):

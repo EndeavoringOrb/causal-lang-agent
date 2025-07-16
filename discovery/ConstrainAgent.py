@@ -174,6 +174,26 @@ class ConstrainNormalAgent(ConstrainAgent):
 
         return self.prompt_dict, self.domain_knowledge_dict
 
+    def generate_domain_knowledge_single_step(self) -> str:
+        """Generates or loads domain knowledge for all variable pairs using LLM.
+
+        For each pair of variables, queries the LLM to obtain domain expertise about
+        their potential causal relationship.
+
+        Args:
+            use_cache: If True, attempts to load cached results before generating new ones.
+            cache_path: Directory path for cache files.
+
+        Returns:
+            A tuple containing:
+                - prompt dictionary
+                - domain knowledge dictionary
+        """
+        prompts = [self.domain_knowledge_LLM.generate_prompt_single_step()]
+        answers = self.domain_knowledge_LLM.inquiry_batched(prompts)[0]
+
+        return answers
+
     def generate_constrain_matrix(self) -> np.ndarray:
         """Generates constraint matrix based on accumulated domain knowledge.
 
@@ -217,6 +237,34 @@ class ConstrainNormalAgent(ConstrainAgent):
         ):
             self.constrain_matrix[i, j] = final[idx]
         return self.constrain_matrix
+    
+    def generate_constrain_matrix_single_step(self, knowledge: str) -> str:
+        """Generates constraint matrix based on accumulated domain knowledge.
+
+        Uses a separate LLM to analyze the domain knowledge and determine if each
+        potential causal relationship is plausible, encoding this as constraints.
+
+        Returns:
+            A numpy array representing the constraint matrix where:
+                -1 indicates no constraint
+                0 indicates the causal relationship is forbidden
+                1 indicates the causal relationship is required
+        """
+
+        # Initialize LLM for converting domain knowledge into constraint matrix
+        #! Must put here, otherwise the domain knowledge dict is empty
+        client = selectClient()
+
+        self.constrain_LLM = ConstrainLLM(
+            client,
+            {},
+        )
+        self.constrain_matrix = np.eye(self.node_num, self.node_num)
+
+        prompts = [self.constrain_LLM.generate_prompt_single_step(knowledge)]
+        answers = self.constrain_LLM.inquiry_batched(prompts)
+
+        return answers[0]
 
     def run(self, use_cache: bool = True, cache_path=None) -> np.ndarray:
         """Executes the complete constraint generation pipeline.
@@ -234,3 +282,20 @@ class ConstrainNormalAgent(ConstrainAgent):
         self.generate_domain_knowledge(use_cache, cache_path)
         self.generate_constrain_matrix()
         return self.constrain_matrix
+
+    def run_single_step(self) -> str:
+        """Executes the complete constraint generation pipeline.
+
+        First generates/loads domain knowledge, then converts it into a constraint
+        matrix.
+
+        Args:
+            use_cache: If True, attempts to load cached domain knowledge.
+            cache_path: Directory path for cache files.
+
+        Returns:
+            Constraint matrix for guiding causal discovery algorithms.
+        """
+        knowledge: str = self.generate_domain_knowledge_single_step()
+        gml_graph = self.generate_constrain_matrix_single_step(knowledge)
+        return gml_graph

@@ -148,6 +148,47 @@ def solution():
 
 """
 
+
+def format_QRData_item_react(
+    benchmark_path,
+    item,
+    prompt="qrdata_react",
+    rows=5,
+    api_docs=False,
+    tool_docs=False,
+):
+    assert (
+        prompt in prompts
+    ), f"Prompt {prompt} is not a valid prompt name {list(prompts.keys())}"
+    with open("/home/azbelikoff/projects/2025_Summer/causal_model_docs.py", "r", encoding="utf-8") as f:
+        causal_model_docs = f.read().strip()
+    text = ""
+    if api_docs:
+        text += f"""Here is documentation for the CausalModel class:
+        ```python
+        {causal_model_docs}
+        ```
+        """
+    if tool_docs:
+        text += f"""Here are some examples of how to implement different causal models.
+        {dowhy_est_methods}
+        """
+    text += "Data Description:\n"
+    text += item["data_description"].strip()
+    text += f"\n{prompts[prompt].strip()}\n"
+
+    file_name = item["data_files"][0]
+    df = pd.read_csv(os.path.join(benchmark_path, f"data/{file_name}"))
+    df = df.sample(frac=1, random_state=42)  # Shuffle the rows
+    text += str(df.columns) + "\n"
+    text += str(df.head(rows)).strip() + "\n\n"
+
+    text += "Begin!\nQuestion:\n"
+    text += item["question"].strip()
+
+    return text, df
+
+
 def format_QRData_item(
     benchmark_path,
     item,
@@ -159,7 +200,9 @@ def format_QRData_item(
 ):
     with open("causal_model_docs.py", "r", encoding="utf-8") as f:
         causal_model_docs = f.read().strip()
-    assert prompt in prompts, f"Prompt {prompt} is not a valid prompt name {list(prompts.keys())}"
+    assert (
+        prompt in prompts
+    ), f"Prompt {prompt} is not a valid prompt name {list(prompts.keys())}"
     text = f"{prompts[prompt]}\n"
 
     if api_docs:
@@ -172,7 +215,6 @@ def format_QRData_item(
         text += f"""Here are some examples of how to implement different causal models.
         {dowhy_est_methods}
         """
-        
 
     if example:
         text += "\n" + example_trace.strip()

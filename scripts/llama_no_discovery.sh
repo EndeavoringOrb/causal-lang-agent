@@ -1,9 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=Combined_32B
+#SBATCH --job-name=Combined_14B
 #SBATCH --time=24:00:00
 #SBATCH --partition=short
 #SBATCH --gres=gpu:1
-#SBATCH -C "H100|H200"
 #SBATCH --mem=64G
 #SBATCH --output=slurm_logs/%j.out
 
@@ -31,7 +30,8 @@ nvidia-smi
 
 # Set model path
 PORT=55553
-MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/Qwen3-32B-UD-Q5_K_XL.gguf"
+# MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/Qwen3-32B-UD-Q5_K_XL.gguf"
+MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/Qwen3-14B-UD-Q6_K_XL.gguf"
 # MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/gemma-3-27b-it-UD-Q4_K_XL.gguf"
 # MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/gemma-3-27b-it-UD-Q8_K_XL.gguf"
 # MODEL_PATH="/home/azbelikoff/projects/2025_Summer/models/Qwen3-8B-UD-Q5_K_XL.gguf"

@@ -3,7 +3,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --partition=short
 #SBATCH --gres=gpu:1
-#SBATCH -C "H100|H200"
+#SBATCH -C "A100|H100|H200"
 #SBATCH --mem=64G
 #SBATCH --output=slurm_logs/%j.out
 

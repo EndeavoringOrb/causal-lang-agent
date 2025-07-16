@@ -1,3 +1,3 @@
 #!/bin/bash
 
-rsync -Phavz --stats --exclude='utils/__pycache__' prompts utils scripts discovery run_llama_server.py llama_server_discovery.py llama_server_no_discovery.py llama_server_no_discovery_original.py llama_server_no_discovery_qrdata_react.py prompts.py tools azbelikoff@turing.wpi.edu:/home/azbelikoff/projects/2025_Summer
+rsync -Phavz --stats --exclude='utils/__pycache__' --exclude='QRData/docs' --exclude='QRData/huggingface_qr.py' --exclude='QRData/LICENSE' --exclude='QRData/README.md' --exclude='QRData/benchmark/data' --exclude='QRData/benchmark/eval.py' --exclude='QRData/benchmark/QRData.json' --exclude='QRData/benchmark/results.jsonl' QRData prompts utils scripts discovery run_llama_server.py llama_server_discovery.py llama_server_no_discovery.py examples.py llama_server_no_discovery_original.py llama_server_no_discovery_qrdata_react.py prompts.py tools azbelikoff@turing.wpi.edu:/home/azbelikoff/projects/2025_Summer

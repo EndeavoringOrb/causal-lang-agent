@@ -11,7 +11,7 @@ Ignavier Ng, Yujia Zheng, Jiji Zhang, Kun Zhang
 import itertools as it
 import logging
 from bisect import bisect_left
-from collections import OrderedDict
+from collections import OrderedDict, deque
 
 import networkx as nx
 import numpy as np
@@ -19,11 +19,14 @@ import numpy as np
 from causallearn.graph.Dag import Dag
 from causallearn.utils.PriorityQueue import PriorityQueue
 
+from utils.profiler import profile
+
 _logger = logging.getLogger(__name__)
 INF = float("inf")
 NEGINF = float("-inf")
 
 
+@profile
 def bic_exact_search(
     X,
     super_graph=None,
@@ -130,7 +133,7 @@ def bic_exact_search(
         )
     elif search_method == "astar":
         structures, shortest_path_stats = astar_shortest_path(
-            parent_graphs, use_path_extension, use_k_cycle_heuristic, k, verbose
+            parent_graphs, use_k_cycle_heuristic, k, verbose
         )
     else:
         raise ValueError("Unknown search method.")
@@ -142,15 +145,14 @@ def bic_exact_search(
     # Convert structures to adjacency matrix
     dag_est = np.zeros((d, d))
     for i, parents in enumerate(structures):
-        dag_est[parents, i] = 1
+        dag_est[tuple(parents), i] = 1
 
     return dag_est, search_stats
 
 
-# ... (astar_shortest_path and dp_shortest_path remain unchanged) ...
+@profile
 def astar_shortest_path(
     parent_graphs,
-    use_path_extension=True,
     use_k_cycle_heuristic=False,
     k=3,
     verbose=False,
@@ -181,6 +183,11 @@ def astar_shortest_path(
         Some statistics related to the shortest path search.
     """
     d = len(parent_graphs)
+    d_set = set(range(d))
+    first_parent_graph_sets = [
+        (set(parent_graphs[i][0][0]), parent_graphs[i][0][0], parent_graphs[i][0][1])
+        for i in range(d)
+    ]
     opened = PriorityQueue()
     closed = set()
 
@@ -209,25 +216,23 @@ def astar_shortest_path(
         if len(U) == d:
             break
 
-        out_set = tuple(i for i in range(d) if i not in U)
+        out_set = d_set - set(U)
+        current_h = sum(parent_graphs[i][0][1] for i in out_set)
         for i in out_set:
             for_iter += 1
             parents, best_score = query_best_structure(parent_graphs[i], U)
 
             g = best_score + score[U]
-            new_U = tuple(sorted(U + (i,)))
+            new_U = set([*U, i])
             new_structures = structures[:]
             new_structures[i] = parents
 
-            if use_path_extension:
-                new_U, new_structures, g = path_extension(
-                    new_U, new_structures, parent_graphs, g
-                )
-
-            if use_k_cycle_heuristic:
-                h = compute_dynamic_h(new_U, PD)
-            else:
-                h = sum(parent_graphs[j][0][1] for j in range(d) if j not in new_U)
+            delta_g = path_extension(
+                new_U, new_structures, first_parent_graph_sets, out_set - {i}
+            )
+            new_U = tuple(sorted(new_U))
+            g += delta_g
+            h = current_h - delta_g - parent_graphs[i][0][1]
 
             f = g + h
             new_entry = (new_U, new_structures)
@@ -261,6 +266,7 @@ def astar_shortest_path(
     return tuple(structures), shortest_path_stats
 
 
+@profile
 def dp_shortest_path(parent_graphs, use_path_extension=True, verbose=False):
     """
     Search for the shortest path in the order graph using DP (Bellman-Ford algorithm).
@@ -332,6 +338,7 @@ def dp_shortest_path(parent_graphs, use_path_extension=True, verbose=False):
     return structures, shortest_path_stats
 
 
+@profile
 def generate_parent_graph(
     X,
     i,
@@ -385,19 +392,21 @@ def generate_parent_graph(
         parent_set = tuple(set(parent_set))
 
     if include_parents is None:
-        include_parents = ()  # Empty tuple
+        include_parents = {}  # Empty tuple
+    include_parents = set(include_parents)
 
     parent_graph = []
     for j in range(len(parent_set) + 1):
         if j == 0:
             if len(include_parents) > 0:
                 continue
-            structure = ()
+            structure = frozenset()
             score = bic_score_node(X, i, structure, suggested_graph, suggestion_weight)
             insort(parent_graph, structure, score)
         elif j <= max_parents:
-            for structure in it.combinations(parent_set, j):
-                if not set(structure).issuperset(include_parents):
+            for structure_tuple in it.combinations(parent_set, j):
+                structure = frozenset(structure_tuple)
+                if not structure >= include_parents:
                     # Skip if structure does not contain all parents to be included
                     continue
                 score = bic_score_node(
@@ -405,7 +414,7 @@ def generate_parent_graph(
                 )
 
                 for variable in structure:
-                    curr_structure = tuple(l for l in structure if l != variable)
+                    curr_structure = structure - {variable}
                     _, curr_best_score = query_best_structure(
                         parent_graph, curr_structure
                     )
@@ -424,6 +433,7 @@ def generate_parent_graph(
     return parent_graph
 
 
+@profile
 def bic_score_node(X, i, structure, suggested_graph=None, suggestion_weight=1.0):
     """
     Calculates the BIC score for a node `i` with a given parent `structure`,
@@ -462,7 +472,7 @@ def bic_score_node(X, i, structure, suggested_graph=None, suggestion_weight=1.0)
         return bic_value
 
 
-# ... (The rest of the helper functions remain unchanged) ...
+@profile
 def insort(parent_graph, structure, score):
     """
     parent_graph is a list of tuples with the form (structure, score) and is
@@ -486,6 +496,7 @@ def insort(parent_graph, structure, score):
     parent_graph.insert(index, (structure, score))
 
 
+@profile
 def query_best_structure(parent_graph, target_structure):
     """
     This function returns the first structure and corresponding score that is
@@ -494,7 +505,7 @@ def query_best_structure(parent_graph, target_structure):
     """
     target_structure = set(target_structure)
     for curr_structure, curr_score in parent_graph:
-        if set(curr_structure).issubset(target_structure):
+        if curr_structure <= target_structure:
             return curr_structure, curr_score
     # If include_graph is not used, the for loop is guaranteed to return
     # the curr_structure and curr_score
@@ -504,26 +515,34 @@ def query_best_structure(parent_graph, target_structure):
     return None, INF
 
 
-def path_extension(U, structures, parent_graphs, g):
-    d = len(structures)
+@profile
+def path_extension(
+    U: set,
+    structures,
+    first_parent_graph_sets: list[tuple[set, tuple, float]],
+    out_set: set,
+):
+    delta_g = 0
+    # d = len(structures)
+    # out_set = set(i for i in range(d) if i not in U)
+
     while True:
-        extended = False
-        out_set = tuple(i for i in range(d) if i not in U)
         for i in out_set:
-            parents, best_score = query_best_structure(parent_graphs[i], U)
-            if best_score == parent_graphs[i][0][1]:
-                g += parent_graphs[i][0][1]
-                U = tuple(sorted(U + (i,)))
-                structures = structures[:]
+            parents_set, parents, contrib = first_parent_graph_sets[i]
+
+            if parents_set <= U:
+                delta_g += contrib
+                U.add(i)
                 structures[i] = parents
-                extended = True
+                out_set.remove(i)
                 break
-        if not extended:
+        else:
             break
 
-    return U, structures, g
+    return delta_g
 
 
+@profile
 def create_dynamic_pd(parent_graphs, k=2):
     d = len(parent_graphs)
     V = tuple(range(d))
@@ -559,6 +578,7 @@ def create_dynamic_pd(parent_graphs, k=2):
     return PD_final
 
 
+@profile
 def expand(U, l, PD_prev, PD_curr, parent_graphs):
     for i in U:
         out_set = tuple_diff(U, [i])
@@ -571,6 +591,7 @@ def expand(U, l, PD_prev, PD_curr, parent_graphs):
             PD_curr[out_set] = g
 
 
+@profile
 def check_save(U, V, delta_h, PD_prev, parent_graphs, save):
     d = len(parent_graphs)
 
@@ -585,6 +606,7 @@ def check_save(U, V, delta_h, PD_prev, parent_graphs, save):
             save.add(tuple_diff(V, U))
 
 
+@profile
 def compute_dynamic_h(U, PD):
     h = 0
     R = U
@@ -595,6 +617,7 @@ def compute_dynamic_h(U, PD):
     return h
 
 
+@profile
 def tuple_diff(A, B):
     # A and B are two different tuples/lists
     # Return A - B in a sorted way
@@ -603,6 +626,7 @@ def tuple_diff(A, B):
     return tuple(sorted(set(A) - set(B)))
 
 
+@profile
 def tuple_union(A, B):
     # A and B are two different tuples/lists
     # Return A + B in a sorted way

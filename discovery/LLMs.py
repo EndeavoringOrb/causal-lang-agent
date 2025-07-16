@@ -185,6 +185,30 @@ class DomainKnowledgeLLM(LLMs):
             prompt += f"Based on the results above, it seems that changes in {self.cause_entity} do not directly affect {self.result_entity}.\n\n"
         return prompt
 
+    def generate_graph_prompt_single_step(self) -> str:
+        """Generates the prompt section describing the causal graph.
+
+        Returns:
+            A string containing the graph description prompt.
+        """
+        num_nodes = self.graph_matrix.shape[0]
+
+        prompt = f"We have conducted the statistical causal discovery with {self.causal_discovery_algorithm} algorithm.\n\n"
+        prompt += "The edges and their coefficients of the structural causal model suggested by the statistical causal discovery are as follows:\n"
+
+        # Traverse adjacency matrix to generate edge descriptions
+        for i in range(num_nodes):
+            for j in range(num_nodes):
+                if i == j:
+                    continue
+                if self.graph_matrix[i, j] == 0:
+                    continue
+                else:
+                    prompt += f"{self.labels[i]} is the cause of {self.labels[j]}.\n"
+        prompt += "\n"
+
+        return prompt
+
     def generate_prompt(
         self,
         cause_index: int,
@@ -257,6 +281,57 @@ class DomainKnowledgeLLM(LLMs):
         self.system_prompt = f"You are an expert."
         return self.prompt, self.system_prompt
 
+    def generate_prompt_single_step(
+        self,
+    ) -> Tuple[str, str]:
+        """Generates complete prompt for domain knowledge verification.
+
+        Args:
+            cause_index: Index of cause variable.
+            result_index: Index of effect variable.
+            node_information: Optional additional information about nodes.
+
+        Returns:
+            A tuple containing (user prompt, system prompt).
+        """
+
+        # Generate dataset description section
+        if self.dataset_prompt == "":
+            self.dataset_prompt = f"We want to perform causal discovery,"
+
+            if self.dataset_information is not None:
+                self.dataset_prompt += f" the summary of dataset: {self.dataset_information}. Considering {', '.join(self.labels)} as variables.\n\n"
+            else:
+                self.dataset_prompt += (
+                    f" considering {', '.join(self.labels)} as variables.\n\n"
+                )
+
+        # Generate causal graph description section
+        if (
+            self.graph_prompt == ""
+            and self.graph_matrix is not None
+            and self.causal_discovery_algorithm is not None
+        ):
+            self.graph_prompt = self.generate_graph_prompt_single_step()
+
+        # Generate task description section
+        final_prompt_template = (
+            f"Your task is to interpret this result from a domain knowledge perspective "
+            f"and determine whether this statistically suggested hypothesis is plausible in "
+            f"the context of the domain.\n\n"
+            f"Please provide an explanation that leverages your expert knowledge on the causal "
+            f"relationship between the variables, "
+            f"and assess the correctness of this causal discovery result.\n "
+            f"Your response should consider the relevant factors and provide "
+            f"a reasonable explanation based on your understanding of the domain."
+        )
+
+        # Combine complete prompt
+        self.prompt = self.dataset_prompt + self.graph_prompt + final_prompt_template
+
+        self.system_prompt = f"You are an expert."
+        return self.prompt, self.system_prompt
+
 
 class ConstrainLLM(LLMs):
     """LLM class for background knowledge verification.
@@ -306,6 +381,21 @@ class ConstrainLLM(LLMs):
             f"Your response should be in the following format:\n"
             f"<0> or <1> or <2> or <3>\n"
             f"Please provide your response in the format specified above.\n"
+        )
+        self.system_prompt = "You are a helpful assistant for causal inference."
+        return self.prompt, self.system_prompt
+
+    def generate_prompt_single_step(self, knowledge) -> Tuple[str, str]:
+        """Generates prompt for background knowledge verification.
+
+        Returns:
+            A tuple containing (user prompt, system prompt).
+        """
+        self.prompt = (
+            f"Here is the explanation from an expert "
+            f"regarding the causal relationships between variables:\n"
+            f"{knowledge}"
+            f"Considering the information above, create a gml graph representing the causal relationships between variables."
         )
         self.system_prompt = "You are a helpful assistant for causal inference."
         return self.prompt, self.system_prompt

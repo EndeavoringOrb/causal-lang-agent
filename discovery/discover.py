@@ -87,5 +87,37 @@ def discover(filename, data_desc, llm_only=False):
     return adjacency_matrix_optimized, labels
 
 
-if __name__ == "__main__":
-    discover("matmcd/data/Auto_MPG_data.csv")
+def discover_single_step(filename, data_desc, llm_only=False):
+    print(f"Loading dataset: {filename}...")
+    data, labels = load_data_from_csv(filename)
+
+    print(f"Running {causal_discovery_algorithm} algorithm...")
+    adjacency_matrix = causal_discovery(data, labels, method=causal_discovery_algorithm)
+    visualize_graph(
+        adjacency_matrix,
+        labels,
+        f"./images/{str(filename).split('/')[-1].strip('.csv')}_{causal_discovery_algorithm}_graph.png",
+    )
+
+    print("Running ConstrainAgent...")
+    constrain_agent = ConstrainNormalAgent(
+        labels,
+        graph_matrix=adjacency_matrix,
+        causal_discovery_algorithm=causal_discovery_algorithm,
+        dataset_information=data_desc,
+    )
+
+    gml_graph = constrain_agent.run_single_step()
+    idx = gml_graph.find("</think>")
+    if idx != -1:
+        gml_graph = gml_graph[idx + len("</think>") :]
+    idx = gml_graph.find("```gml")
+    if idx != -1:
+        gml_graph = gml_graph[idx + len("```gml") :]
+        idx = gml_graph.find("```")
+        gml_graph = gml_graph[:idx]
+
+    print("The gml graph is:")
+    print(gml_graph)
+
+    return gml_graph

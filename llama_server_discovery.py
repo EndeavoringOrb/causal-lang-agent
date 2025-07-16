@@ -621,7 +621,7 @@ def ReAct_think(
             "pred": output,
             "correct": correct,
         }
-        log_ans += f"True Answer: {item["answer"]}\n"
+        log_ans += f"True Answer: {item['answer']}\n"
         save_result(RESULTS_PATH, result_record)
         with open(f'results/logs/{MODEL_NAME}_Q{idx}_log.txt', 'w') as log:
             log.write(log_ans)

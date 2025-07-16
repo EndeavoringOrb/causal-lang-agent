@@ -7,3 +7,9 @@ matmcd
 graph.dot
 tmp.json
 full_response.txt
+causal-llm-bfs
+notes
+cache
+utils/profiler.py
+utils/toggle_profiler.ps1
+notes.txt
