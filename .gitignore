@@ -16,7 +16,6 @@ notes.txt
 results/tmp.jsonl
 results/tmp2.jsonl
 tools/independence_test.py
-llama_server_no_discovery_original.py
 results/logs
 results/matt-results
 results/Qwen3-32B-UD-Q5_K_XL-POT-OLD.jsonl

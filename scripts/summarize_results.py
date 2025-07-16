@@ -3,9 +3,6 @@ import os
 from collections import defaultdict
 from typing import Optional, Set
 
-BENCHMARK_PATH = "QRData/benchmark/"
-
-
 def summarize_results(
     results_filepath: str, data, special_idxs: Optional[Set[int]] = None
 ):
@@ -91,13 +88,13 @@ def summarize_results(
 
 
 if __name__ == "__main__":
-    ######################
+    ###########################################################################
     # Settings
-    ######################
+    ###########################################################################
     result_dir = "results"
-    # Optional special idxs
-    special_idxs = {356, 357, 363, 366, 367}  # Example: replace with your actual list
-    ######################
+    special_idxs = set()  # Optional special idxs to treat as separate category
+    BENCHMARK_PATH = "QRData/benchmark/"
+    ###########################################################################
 
     result_files = [f"{result_dir}/{file}" for file in os.listdir(result_dir)]
     result_files = [file for file in result_files if file.endswith(".jsonl")]
