@@ -8,10 +8,8 @@ import contextlib
 import pandas as pd
 from typing import List
 import argparse
-try:
-    import econml
-except:
-    pass
+from utils.utils import count_columns
+import econml
 import dowhy
 import discovery.config
 
@@ -29,7 +27,6 @@ MODEL_NAME = args.model.split("/")[-1]
 USE_BOXED = True
 discovery.config.LLAMA_CPP_SERVER_BASE_URL = "http://localhost:55552"
 discovery.config.MAX_PARALLEL_REQUESTS = 2
-# MODEL_NAME = "unsloth/gemma-3-27b-it-UD-Q8_K_XL"
 BENCHMARK_PATH = "QRData/benchmark"
 LOG = True
 MAX_NUM_EXAMPLES = -1
@@ -655,10 +652,6 @@ if __name__ == "__main__":
             and (item[1]["meta_data"]["question_type"] == "numerical")
         )
     ]
-
-    def count_columns(csv_path):
-        df = pd.read_csv(csv_path)
-        return len(df.columns)
 
     data = sorted(
         data,

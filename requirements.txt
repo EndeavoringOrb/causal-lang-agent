@@ -1,11 +1,13 @@
 pandas
-
-requests
-causal-learn
 dowhy
+econml==0.15.1
+requests
+
+causal-learn
+
 networkx==3.4.2
 tqdm
-econml==0.15.1
+
 scipy==1.15.3
 causalml
 linearmodels

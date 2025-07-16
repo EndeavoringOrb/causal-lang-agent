@@ -1,27 +1,29 @@
 import os
-import json
-import pandas as pd
 import argparse
 from utils.llama_server_client import LlamaServerClient
-from utils.utils import is_correct, save_result
+from utils.utils import is_correct, save_result, load_data
 from tools.shell import PersistentShell
 from prompts.prompts import format_QRData_item_react
 
 ################################################################
 # Settings
 ################################################################
-DEFAULT_PORT = 55553
-DEFAULT_HOST = "http://localhost"
-BENCHMARK_PATH = "QRData/benchmark"  # Path to the folder containing data/ and QRData.json
-LOG = True  # If true, LlamaServerClient will print model responses in the terminal
-MAX_NUM_EXAMPLES = (
-    -1
-)  # Max number of items from QRData to process. -1 means process all items
-MAX_EXTRA_TURNS = 9  # The max number of retries the model gets for writing code
-THINK = True  # Set to true if the model you are using outputs <think></think> tags
-PROMPT_OPTIONS = {
-    "prompt": "qrdata_react",
-    "rows": 5,
+config = {
+    "default_port": 55553,
+    "default_host": "http://localhost",
+    "benchmark_path": "QRData/benchmark",  # Path to the folder containing data/ and QRData.json
+    "qrdata_file": "QRData_cleaned.json",
+    "log": True,  # If true, LlamaServerClient will print model responses in the terminal
+    "max_num_examples": -1,  # Max number of items from QRData to process. -1 means process all items
+    "max_extra_turns": 9,  # The max number of retries the model gets for writing code
+    "think": True,  # Set to true if the model you are using outputs <think></think> tags
+    "prompt_options": {"prompt": "qrdata_react", "rows": 5},
+    "skip_results_path": None,  # Path to a file containing results that should be skipped. If None, no results will be skipped.
+    "data_filters": [
+        "Causal",
+        "Num",
+    ],  # Possible filters: "Causal", "Num", "Multiple Choice"
+    "results_path": "results",  # Path to the folder where results will be saved
 }
 ################################################################
 
@@ -44,15 +46,16 @@ args = parser.parse_args()
 MODEL_NAME = args.model.split("/")[-1]
 
 # Construct server URL
-port = args.port if args.port is not None else DEFAULT_PORT
-LLAMA_CPP_SERVER_BASE_URL = f"{DEFAULT_HOST}:{port}"
+port = args.port if args.port is not None else config["default_port"]
+LLAMA_CPP_SERVER_BASE_URL = f"{config['default_host']}:{port}"
 
 # Make sure results folder exists
-RESULTS_PATH = "/home/azbelikoff/projects/2025_Summer/results"
-os.makedirs(RESULTS_PATH, exist_ok=True)
-num_results = len(os.listdir(RESULTS_PATH))
-RESULTS_PATH = os.path.join(RESULTS_PATH, f"results_{num_results}.jsonl")
-print(f"Saving results to {RESULTS_PATH}")
+os.makedirs(config["results_path"], exist_ok=True)
+num_results = len(os.listdir(config["results_path"]))
+config["results_path"] = os.path.join(
+    config["results_path"], f"results_{num_results}.jsonl"
+)
+print(f"Saving results to {config['results_path']}")
 
 
 def react_turn(
@@ -66,7 +69,7 @@ def react_turn(
         for chunk in client.generate(
             prompt=messages + [{"role": "assistant", "content": "<think>"}],
             stream=True,
-            log_response=LOG,
+            log_response=config["log"],
             text_only=True,
             stop=["</think>"],
         ):
@@ -79,7 +82,7 @@ def react_turn(
     for chunk in client.generate(
         prompt=messages + [{"role": "assistant", "content": answer}],
         stream=True,
-        log_response=LOG,
+        log_response=config["log"],
         text_only=True,
         stop=["Observation:"],
     ):
@@ -161,12 +164,14 @@ def process(
     max_extra_turns=3,
 ):
     shell = PersistentShell(log=True)
-    shell.set_working_directory(BENCHMARK_PATH)
+    shell.set_working_directory(config["benchmark_path"])
     if max_num_examples == -1:
         max_num_examples = len(data)
     max_num_examples = min(len(data), max_num_examples)
     for idx, item in data[:max_num_examples]:
-        prompt, df = format_QRData_item_react(BENCHMARK_PATH, item, **PROMPT_OPTIONS)
+        prompt, df = format_QRData_item_react(
+            config["benchmark_path"], item, **config["prompt_options"]
+        )
         shell.reset()
         shell.set_variable("df", df)
         messages = [
@@ -235,7 +240,7 @@ def process(
             "pred": output,
             "correct": correct,
         }
-        save_result(RESULTS_PATH, result_record)
+        save_result(config["results_path"], result_record)
 
         logpath = f"results/logs/{MODEL_NAME}_Q{idx}_log.jsonl"
         for r in messages:
@@ -245,30 +250,17 @@ def process(
 if __name__ == "__main__":
     client = LlamaServerClient(LLAMA_CPP_SERVER_BASE_URL)
 
-    with open(
-        os.path.join(BENCHMARK_PATH, "QRData_cleaned.json"), "r", encoding="utf-8"
-    ) as f:
-        data = json.load(f)
-
-    print(f"Loaded {len(data):,} items")
-    data = [
-        item
-        for item in enumerate(data)
-        if (("Causality" in item[1]["meta_data"]["keywords"]))
-        and (item[1]["meta_data"]["question_type"] == "numerical")
-    ]
-
-    def count_columns(csv_path):
-        df = pd.read_csv(csv_path)
-        return len(df.columns)
-
-    data = sorted(
-        data,
-        key=lambda item: count_columns(
-            os.path.join(BENCHMARK_PATH, "data", item[1]["data_files"][0])
-        ),
+    data = load_data(
+        config["benchmark_path"],
+        config["qrdata_file"],
+        config["skip_results_path"],
+        config["data_filters"],
     )
-    print(f"Filtered for {len(data):,} causal numerical items")
-    print(data[0])
 
-    process(client, data, THINK, MAX_NUM_EXAMPLES, max_extra_turns=MAX_EXTRA_TURNS)
+    process(
+        client,
+        data,
+        config["think"],
+        config["max_num_examples"],
+        max_extra_turns=config["max_extra_turns"],
+    )

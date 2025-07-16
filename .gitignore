@@ -19,3 +19,7 @@ tools/independence_test.py
 llama_server_no_discovery_original.py
 prompts/original.txt
 results/logs
+results/matt-results
+results/Qwen3-32B-UD-Q5_K_XL-POT-OLD.jsonl
+results/*-Num.jsonl
+results/*-MC.jsonl

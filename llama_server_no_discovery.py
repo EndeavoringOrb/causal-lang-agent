@@ -1,31 +1,36 @@
 import os
-import json
-import csv
 import argparse
 from utils.llama_server_client import LlamaServerClient
-from utils.utils import exec_with_output, is_correct, save_result, extract_code
+from utils.utils import (
+    exec_with_output,
+    is_correct,
+    save_result,
+    extract_code,
+    load_data,
+)
 from prompts.prompts import format_QRData_item
 
 ################################################################
 # Settings
 ################################################################
-DEFAULT_PORT = 55552
-DEFAULT_HOST = "http://localhost"
-BENCHMARK_PATH = (
-    "QRData/benchmark"  # Path to the folder containing data/ and QRData.json
-)
-LOG = True  # If true, LlamaServerClient will print model responses in the terminal
-MAX_NUM_EXAMPLES = (
-    -1
-)  # Max number of items from QRData to process. -1 means process all items
-MAX_EXTRA_TURNS = 3  # The max number of retries the model gets for writing code
-THINK = True  # Set to true if the model you are using outputs <think></think> tags
-PROMPT_OPTIONS = {
-    "prompt": "combined",
-    "example": False,
-    "rows": 10,
+config = {
+    "default_port": 55552,
+    "default_host": "http://localhost",
+    "benchmark_path": "QRData/benchmark",  # Path to the folder containing data/ and QRData.json
+    "qrdata_file": "QRData_cleaned.json",
+    "log": True,  # If true, LlamaServerClient will print model responses in the terminal
+    "max_num_examples": -1,  # Max number of items from QRData to process. -1 means process all items
+    "max_extra_turns": 3,  # The max number of retries the model gets for writing code
+    "think": True,  # Set to true if the model you are using outputs <think></think> tags
+    "prompt_options": {"prompt": "combined", "example": False, "rows": 10},
+    "skip_results_path": None,  # Path to a file containing results that should be skipped. If None, no results will be skipped.
+    "data_filters": [
+        "Causal",
+        "Num",
+    ],  # Possible filters: "Causal", "Num", "Multiple Choice"
+    "results_path": "results",  # Path to the folder where results will be saved
+    "method": "POT",  # "POT" or "process"
 }
-SKIP_RESULTS_PATH = None  # i.e. "results/results_24.jsonl"
 ################################################################
 
 # Argument parsing
@@ -44,16 +49,19 @@ parser.add_argument(
 args = parser.parse_args()
 
 # Extract model name
-MODEL_NAME = args.model.split("/")[-1]
+MODEL_NAME = args.model.split("/")[-1].strip("gguf")
 
 # Construct server URL
-port = args.port if args.port is not None else DEFAULT_PORT
-LLAMA_CPP_SERVER_BASE_URL = f"{DEFAULT_HOST}:{port}"
+port = args.port if args.port is not None else config["default_port"]
+LLAMA_CPP_SERVER_BASE_URL = f"{config['default_host']}:{port}"
 
 # Make sure results folder exists
-os.makedirs("results", exist_ok=True)
-num_results = len(os.listdir("results"))
-RESULTS_PATH = os.path.join("results", f"results_{num_results}.jsonl")
+os.makedirs(config["results_path"], exist_ok=True)
+num_results = len(os.listdir(config["results_path"]))
+config["results_path"] = os.path.join(
+    config["results_path"], f"results_{num_results}.jsonl"
+)
+print(f"Saving results to {config['results_path']}")
 
 
 def generate_code(
@@ -67,7 +75,7 @@ def generate_code(
         for chunk in client.generate(
             prompt=messages + [{"role": "assistant", "content": "<think>"}],
             stream=True,
-            log_response=LOG,
+            log_response=config["log"],
             text_only=True,
             stop=["</think>"],
         ):
@@ -80,7 +88,7 @@ def generate_code(
     for chunk in client.generate(
         prompt=messages + [{"role": "assistant", "content": answer}],
         stream=True,
-        log_response=LOG,
+        log_response=config["log"],
         text_only=True,
         stop=["```"],
     ):
@@ -95,15 +103,11 @@ def process(
     client: LlamaServerClient,
     data,
     think: bool,
-    max_num_examples=1,
     max_extra_turns=3,
 ):
-    if max_num_examples == -1:
-        max_num_examples = len(data)
-    max_num_examples = min(len(data), max_num_examples)
-    for idx, item in data[:max_num_examples]:
+    for idx, item in data:
         prompt, answer_start = format_QRData_item(
-            BENCHMARK_PATH, item, **PROMPT_OPTIONS
+            config["benchmark_path"], item, **config["prompt_options"]
         )
         messages = [
             {"role": "user", "content": prompt},
@@ -134,7 +138,7 @@ def process(
                 output, stdout, stderr = "", "", ""
             else:
                 output, stdout, stderr = exec_with_output(
-                    code, os.path.join(BENCHMARK_PATH, "data")
+                    code, os.path.join(config["benchmark_path"], "data")
                 )
                 messages.append(
                     {
@@ -156,53 +160,83 @@ def process(
             "pred": output,
             "correct": correct,
         }
-        save_result(RESULTS_PATH, result_record)
+        save_result(config["results_path"], result_record)
 
         logpath = f"results/logs/{MODEL_NAME}_Q{idx}_log.jsonl"
         for r in messages:
             save_result(logpath, r)
 
 
+def POT(client, data):
+    # Program of thoughts
+    for idx, item in data:
+        prompt = format_QRData_item(
+            config["benchmark_path"], item, **config["prompt_options"]
+        )
+        try:
+            answer = "def solution():\n"
+            for chunk in client.generate(
+                prompt=prompt,
+                stream=True,
+                log_response=config["log"],
+                text_only=True,
+                stop=["```"],
+            ):
+                answer += chunk
+
+            lines = answer.splitlines()
+            answer = []
+            for line in lines:
+                if line.strip().startswith("return"):
+                    answer.append(line)
+                    break
+                answer.append(line)
+            answer = "\n".join(answer)
+
+            final_answer, stdout, stderr = exec_with_output(
+                answer, os.path.join(config["benchmark_path"], "data")
+            )
+            print(f"Final Answer: {final_answer}")
+            print(f"STDOUT: {stdout}")
+            print(f"STDERR: {stderr}")
+
+            correct = is_correct(final_answer, item)
+
+            result_record = {
+                "model": MODEL_NAME,
+                "idx": idx,
+                "answer": item["answer"],
+                "pred": final_answer,
+                "correct": correct,
+            }
+        except Exception:
+            result_record = {
+                "model": MODEL_NAME,
+                "idx": idx,
+                "answer": item["answer"],
+                "pred": "err",
+                "correct": False,
+            }
+        save_result(config["results_path"], result_record)
+
+
 if __name__ == "__main__":
     client = LlamaServerClient(LLAMA_CPP_SERVER_BASE_URL)
 
-    with open(
-        os.path.join(BENCHMARK_PATH, "QRData_cleaned.json"), "r", encoding="utf-8"
-    ) as f:
-        data = json.load(f)
-
-    skip_idxs = set()
-    if SKIP_RESULTS_PATH:
-        with open(SKIP_RESULTS_PATH, "r", encoding="utf-8") as f:
-            for line in f:
-                line = json.loads(line.strip())
-                skip_idxs.add(line["idx"])
-        print(f"Skipping {len(skip_idxs):,} items that have already been processed")
-
-    print(f"Loaded {len(data):,} items")
-    data = [
-        item
-        for item in enumerate(data)
-        if (
-            ("Causality" in item[1]["meta_data"]["keywords"])
-            and (item[1]["meta_data"]["question_type"] == "numerical")
-            and item[0] not in skip_idxs
-        )
-    ]
-
-    def count_columns(csv_path):
-        with open(csv_path, newline="") as csvfile:
-            reader = csv.reader(csvfile)
-            header = next(reader)
-            return len(header)
-
-    data = sorted(
-        data,
-        key=lambda item: count_columns(
-            os.path.join(BENCHMARK_PATH, "data", item[1]["data_files"][0])
-        ),
+    data = load_data(
+        config["benchmark_path"],
+        config["qrdata_file"],
+        config["skip_results_path"],
+        config["data_filters"],
+        config["max_num_examples"],
     )
-    print(f"Filtered for {len(data):,} causal numerical items")
-    print(data[0])
 
-    process(client, data, THINK, MAX_NUM_EXAMPLES, max_extra_turns=MAX_EXTRA_TURNS)
+    if config["method"] == "POT":
+        POT(client, data)
+    elif config["method"] == "process":
+        process(
+            client,
+            data,
+            config["think"],
+            max_extra_turns=config["max_extra_turns"],
+        )

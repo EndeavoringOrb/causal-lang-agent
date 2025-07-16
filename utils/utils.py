@@ -1,12 +1,13 @@
 import contextlib
 import traceback
 import json
+import csv
 import os
 import io
 import re
 
 # for exec
-# import econml
+import econml
 import dowhy
 
 
@@ -128,3 +129,58 @@ def extract_code(answer: str):
     code = "\n".join(code).strip()
 
     return answer, code, False
+
+def count_columns(csv_path: str):
+    with open(csv_path, newline="") as csvfile:
+        reader = csv.reader(csvfile)
+        header = next(reader)
+        return len(header)
+    
+def load_data(BENCHMARK_PATH: str, QRDATA_FILE: str, SKIP_RESULTS_PATH: str | None, DATA_FILTERS: list[str], MAX_NUM_EXAMPLES: int = -1):
+    with open(os.path.join(BENCHMARK_PATH, QRDATA_FILE), "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    skip_idxs = set()
+    if SKIP_RESULTS_PATH:
+        with open(SKIP_RESULTS_PATH, "r", encoding="utf-8") as f:
+            for line in f:
+                line = json.loads(line.strip())
+                skip_idxs.add(line["idx"])
+        print(f"Skipping {len(skip_idxs):,} items that have already been processed")
+
+    print(f"Loaded {len(data):,} items")
+    new_data = []
+    for item in enumerate(data):
+        if "Causal" in DATA_FILTERS and (
+            "Causality" not in item[1]["meta_data"]["keywords"]
+        ):
+            continue
+        if "Num" in DATA_FILTERS and (
+            item[1]["meta_data"]["question_type"] != "numerical"
+        ):
+            continue
+        if "Multiple Choice" in DATA_FILTERS and (
+            item[1]["meta_data"]["question_type"] == "numerical"
+        ):
+            continue
+        if item[0] in skip_idxs:
+            continue
+        new_data.append(item)
+    data = new_data
+    print(f"Filtered for {len(data):,} items using filters {DATA_FILTERS}")
+
+    data = sorted(
+        data,
+        key=lambda item: count_columns(
+            os.path.join(BENCHMARK_PATH, "data", item[1]["data_files"][0])
+        ),
+    )
+    print(f"Sorted data by # variables ascending")
+
+    if MAX_NUM_EXAMPLES == -1:
+        MAX_NUM_EXAMPLES = len(data)
+    MAX_NUM_EXAMPLES = min(MAX_NUM_EXAMPLES, len(data))
+    data = data[:MAX_NUM_EXAMPLES]
+    print(f"Truncated data to {MAX_NUM_EXAMPLES:,} items")
+
+    return data
