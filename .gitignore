@@ -15,3 +15,4 @@ utils/toggle_profiler.ps1
 notes.txt
 results/tmp.jsonl
 results/tmp2.jsonl
+tools/independence_test.py
