@@ -2,12 +2,9 @@ pandas
 dowhy
 econml==0.15.1
 requests
-
 causal-learn
-
 networkx==3.4.2
 tqdm
-
 scipy==1.15.3
 causalml
 linearmodels
