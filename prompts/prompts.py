@@ -160,7 +160,7 @@ def format_QRData_item_react(
     assert (
         prompt in prompts
     ), f"Prompt {prompt} is not a valid prompt name {list(prompts.keys())}"
-    with open("/home/azbelikoff/projects/2025_Summer/causal_model_docs.py", "r", encoding="utf-8") as f:
+    with open("prompts/causal_model_docs.py", "r", encoding="utf-8") as f:
         causal_model_docs = f.read().strip()
     text = ""
     if api_docs:
@@ -198,7 +198,7 @@ def format_QRData_item(
     tool_docs=True,
     rows=10,
 ):
-    with open("causal_model_docs.py", "r", encoding="utf-8") as f:
+    with open("prompts/causal_model_docs.py", "r", encoding="utf-8") as f:
         causal_model_docs = f.read().strip()
     assert (
         prompt in prompts

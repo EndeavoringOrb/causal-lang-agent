@@ -4,7 +4,7 @@ import csv
 import argparse
 from utils.llama_server_client import LlamaServerClient
 from utils.utils import exec_with_output, is_correct, save_result, extract_code
-from prompts import format_QRData_item
+from prompts.prompts import format_QRData_item
 
 ################################################################
 # Settings
@@ -25,6 +25,7 @@ PROMPT_OPTIONS = {
     "example": False,
     "rows": 10,
 }
+SKIP_RESULTS_PATH = None  # i.e. "results/results_24.jsonl"
 ################################################################
 
 # Argument parsing
@@ -171,11 +172,12 @@ if __name__ == "__main__":
         data = json.load(f)
 
     skip_idxs = set()
-    with open("results/results_24.jsonl", "r", encoding="utf-8") as f:
-        for line in f:
-            line = json.loads(line.strip())
-            skip_idxs.add(line["idx"])
-    print(f"Skipping {len(skip_idxs):,} items that have already been processed")
+    if SKIP_RESULTS_PATH:
+        with open(SKIP_RESULTS_PATH, "r", encoding="utf-8") as f:
+            for line in f:
+                line = json.loads(line.strip())
+                skip_idxs.add(line["idx"])
+        print(f"Skipping {len(skip_idxs):,} items that have already been processed")
 
     print(f"Loaded {len(data):,} items")
     data = [

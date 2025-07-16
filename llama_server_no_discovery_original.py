@@ -4,7 +4,7 @@ import pandas as pd
 import argparse
 from utils.llama_server_client import LlamaServerClient
 from utils.utils import exec_with_output, is_correct, save_result, extract_code
-from prompts import format_QRData_item
+from prompts.prompts import format_QRData_item
 
 ################################################################
 # Settings

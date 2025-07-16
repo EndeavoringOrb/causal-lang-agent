@@ -5,14 +5,14 @@ import argparse
 from utils.llama_server_client import LlamaServerClient
 from utils.utils import is_correct, save_result
 from tools.shell import PersistentShell
-from prompts import format_QRData_item_react
+from prompts.prompts import format_QRData_item_react
 
 ################################################################
 # Settings
 ################################################################
 DEFAULT_PORT = 55553
 DEFAULT_HOST = "http://localhost"
-BENCHMARK_PATH = "/home/azbelikoff/projects/2025_Summer/QRData/benchmark"  # Path to the folder containing data/ and QRData.json
+BENCHMARK_PATH = "QRData/benchmark"  # Path to the folder containing data/ and QRData.json
 LOG = True  # If true, LlamaServerClient will print model responses in the terminal
 MAX_NUM_EXAMPLES = (
     -1
