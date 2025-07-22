@@ -24,6 +24,9 @@ def summarize_results(
     with open(path) as resultfile:
         for line in resultfile:
             result = json.loads(line)
+            if "model" not in result or "idx" not in result or "answer" not in result or "pred" not in result or "correct" not in result:
+                print(f"Non result line: {result}")
+                continue
             idx = result["idx"]
             if idx in latest_results:
                 print(
